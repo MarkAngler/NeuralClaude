@@ -1,6 +1,6 @@
 {
   "name": "neuralclaude",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Neural LLM Memory Framework - A high-performance Rust-based neural memory system for LLMs",
   "main": "index.node",
   "types": "index.d.ts",
