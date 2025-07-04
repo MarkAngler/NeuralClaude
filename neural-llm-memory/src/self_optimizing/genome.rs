@@ -35,7 +35,7 @@ pub struct ArchitectureGenome {
 }
 
 /// Gene representing a single layer
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LayerGene {
     pub id: usize,
     pub layer_type: LayerType,
@@ -57,7 +57,7 @@ pub enum LayerType {
 }
 
 /// Gene representing a connection between layers
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ConnectionGene {
     pub from_layer: usize,
     pub to_layer: usize,
