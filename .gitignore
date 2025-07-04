@@ -1,0 +1,149 @@
+neural_memory_data/
+
+# Rust
+/target/
+**/target/
+/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Debug
+/debug/
+*.dSYM/
+
+# Release
+/release/
+
+# Backup files
+*.orig
+*.bak
+
+# File system
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+Session.vim
+.cproject
+.idea/
+*.iml
+.vscode/
+.project
+.vim/
+.helix/
+.zed/
+.favorites.json
+.settings/
+.vs/
+.dir-locals.el
+*.sublime-*
+
+# OS
+.Trash-*
+.nfs*
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+/vendor/
+.cargo/
+
+# Test coverage
+*.profraw
+*.profdata
+/coverage/
+tarpaulin-report.html
+
+# Documentation
+/doc/
+/target/doc/
+
+# Benchmarks
+/target/criterion/
+
+# IDE rust plugin
+/target/rls/
+/target/rust-analyzer/
+
+# WASM
+/target/wasm32-*/
+*.wasm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Build artifacts
+/build/
+/dist/
+/out/
+
+# Nix
+/flake.nix
+flake.lock
+/default.nix
+result
+result-*
+
+# direnv
+.envrc
+.direnv/
+
+# Claude/AI
+.claude/
+CLAUDE.md
+
+# Neural/Memory
+*.neural
+*.memory
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
