@@ -14,6 +14,9 @@ pub mod integration;
 pub mod storage;
 pub mod self_optimizing;
 
+#[cfg(feature = "napi")]
+pub mod napi_bindings;
+
 pub use nn::{NeuralNetwork, Layer, Activation};
 pub use memory::{MemoryBank, MemoryModule, MemoryConfig, PersistentMemoryModule, PersistentMemoryBuilder};
 pub use attention::MultiHeadAttention;

@@ -1,0 +1,91 @@
+name: Publish to NPM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Install dependencies
+        working-directory: ./neural-llm-memory
+        run: npm install
+
+      - name: Build native module
+        working-directory: ./neural-llm-memory
+        run: npm run build
+
+      - name: Create prebuilds
+        working-directory: ./neural-llm-memory
+        run: npm run prebuild
+
+      - name: Upload prebuilds
+        uses: actions/upload-artifact@v3
+        with:
+          name: prebuilds-${{ matrix.os }}
+          path: neural-llm-memory/prebuilds/
+
+  publish:
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all prebuilds
+        uses: actions/download-artifact@v3
+        with:
+          path: prebuilds/
+
+      - name: Organize prebuilds
+        working-directory: ./neural-llm-memory
+        run: |
+          mkdir -p final-prebuilds
+          find ../prebuilds -name "*.tar.gz" -exec cp {} final-prebuilds/ \;
+          rm -rf prebuilds
+          mv final-prebuilds prebuilds
+
+      - name: Install dependencies
+        working-directory: ./neural-llm-memory
+        run: npm install
+
+      - name: Publish to npm
+        working-directory: ./neural-llm-memory
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,67 @@
+{
+  "name": "neuralclaude",
+  "version": "0.1.0",
+  "description": "Neural LLM Memory Framework - A high-performance Rust-based neural memory system for LLMs",
+  "main": "index.node",
+  "types": "index.d.ts",
+  "scripts": {
+    "install": "node-gyp-build",
+    "build": "cargo build --release --features napi && cp target/release/libneuralclaude.so index.node 2>/dev/null || cp target/release/libneuralclaude.dylib index.node 2>/dev/null || cp target/release/neuralclaude.dll index.node",
+    "build-debug": "cargo build --features napi",
+    "test": "cargo test",
+    "test-js": "node example.js",
+    "prebuild": "prebuildify --napi --strip",
+    "prebuild-cross": "prebuildify-cross --napi --strip",
+    "prepublishOnly": "npm run build && npm run prebuild",
+    "clean": "rm -rf target node_modules index.node"
+  },
+  "keywords": [
+    "neural",
+    "memory",
+    "llm",
+    "ai",
+    "machine-learning",
+    "rust",
+    "napi",
+    "neural-network"
+  ],
+  "author": "Neural Memory Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markangler/NeuralClaude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/markangler/NeuralClaude/issues"
+  },
+  "homepage": "https://github.com/markangler/NeuralClaude#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "index.node",
+    "index.d.ts",
+    "index.js",
+    "src/**/*.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+    "build.rs",
+    "prebuilds/**/*"
+  ],
+  "dependencies": {
+    "node-gyp-build": "^4.6.0"
+  },
+  "devDependencies": {
+    "cargo-cp-artifact": "^0.1.8",
+    "node-gyp": "^10.0.1",
+    "prebuildify": "^6.0.0",
+    "prebuildify-cross": "^5.0.0"
+  },
+  "binary": {
+    "module_name": "neuralclaude",
+    "module_path": "./",
+    "remote_path": "v{version}",
+    "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}.tar.gz",
+    "host": "https://github.com/yourusername/NeuralClaude/releases/download/"
+  }
+}

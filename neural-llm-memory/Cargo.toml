@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Neural Memory Framework"]
 
+[lib]
+name = "neuralclaude"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 # Core dependencies
 ndarray = { version = "0.15", features = ["rayon", "serde"] }
@@ -39,6 +43,10 @@ anyhow = "1.0"
 # Performance optimization
 crossbeam = "0.8"
 
+# Node.js bindings
+napi = { version = "2", features = ["async", "serde-json"], optional = true }
+napi-derive = { version = "2", optional = true }
+
 # Logging and metrics
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -60,6 +68,13 @@ codegen-units = 1
 opt-level = 3
 lto = true
 codegen-units = 1
+
+[build-dependencies]
+napi-build = "2"
+
+[features]
+default = []
+napi = ["dep:napi", "dep:napi-derive", "napi-build", "tokio/macros"]
 
 [[example]]
 name = "self_optimizing_demo"
