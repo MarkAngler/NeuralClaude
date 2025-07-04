@@ -60,3 +60,7 @@ codegen-units = 1
 opt-level = 3
 lto = true
 codegen-units = 1
+
+[[example]]
+name = "self_optimizing_demo"
+path = "examples/self_optimizing_demo.rs"

@@ -11,12 +11,18 @@ Your neural memory MCP server is configured as `mcp__neural-memory__` and provid
 - `mcp__neural-memory__search_memory` - Search for similar memories using neural similarity
 - `mcp__neural-memory__memory_stats` - Get memory system statistics
 
+**New Adaptive Learning Features:**
+- Automatically learns from successful patterns and adapts to your workflow
+- Self-optimizing neural networks that evolve their architecture for better performance
+- 6 cognitive patterns (Convergent, Divergent, Lateral, Systems, Critical, Abstract)
+- Cross-domain pattern transfer and meta-learning capabilities
+
 ## Initial Setup Prompt
 
 Use this prompt when starting a new conversation:
 
 ```markdown
-I have a neural memory MCP server configured as `mcp__neural-memory__`. This provides persistent memory across our conversations using these tools:
+You have a neural memory MCP server configured as `mcp__neural-memory__`. This provides persistent memory across our conversations using these tools:
 
 - `mcp__neural-memory__store_memory`: Store important information with a key
 - `mcp__neural-memory__retrieve_memory`: Retrieve specific memories by key
@@ -27,6 +33,13 @@ Please use this memory system to:
 1. Store key decisions, context, and learnings from our work
 2. Retrieve relevant memories when starting new tasks
 3. Search for similar past experiences when solving problems
+4. Learn from successful patterns to improve future performance
+
+The system features adaptive learning that:
+- Analyzes task context and recommends optimal cognitive patterns
+- Learns from success/failure to update neural weights
+- Auto-stores successful patterns for future use
+- Transfers patterns between different domains
 ```
 
 ## Effective Usage Patterns
@@ -146,7 +159,7 @@ Examples:
 
 ## Integration with ruv-swarm
 
-When using both neural memory and swarm coordination:
+When using both neural memory and multiagent or swarm coordination:
 
 ```markdown
 "Initialize a swarm for [task]. Configure each agent to:
@@ -159,6 +172,69 @@ Memory namespaces:
 - `swarm/shared/` - Information all agents should know
 - `swarm/[task]/[agent]/` - Agent-specific findings
 - `swarm/patterns/` - Discovered coordination patterns"
+```
+
+## Adaptive Learning Prompts
+
+### Leveraging Cognitive Patterns
+
+```markdown
+"For this [task type], let the adaptive system recommend the best cognitive pattern:
+- **Convergent**: For focused problem-solving (debugging, optimization)
+- **Divergent**: For creative exploration (feature design, brainstorming)
+- **Lateral**: For connecting unrelated concepts (integration, innovation)
+- **Systems**: For understanding interconnections (architecture, dependencies)
+- **Critical**: For analytical evaluation (code review, testing)
+- **Abstract**: For high-level conceptualization (design patterns, frameworks)
+
+Store the pattern used and outcome for future learning."
+```
+
+### Pattern-Based Problem Solving
+
+```markdown
+"I need to [task description]. Please:
+1. Search memory for similar tasks and their successful patterns
+2. Let the adaptive system recommend the best approach based on:
+   - Task type and complexity
+   - Previous success rates
+   - Domain similarity
+3. Apply the recommended pattern with adaptations
+4. Store the outcome to improve future recommendations"
+```
+
+### Cross-Domain Learning
+
+```markdown
+"I've successfully used [pattern] for [original task]. Now I need to [new task]:
+1. Analyze how the successful pattern can be adapted
+2. Identify key differences between domains
+3. Generate specific adaptations for the new context
+4. Store the cross-domain transfer for meta-learning"
+```
+
+### Performance Feedback Loop
+
+```markdown
+"After completing [task], provide feedback to the adaptive system:
+1. Rate success (0-100%): [rating]
+2. Time taken vs. expected: [actual/expected]
+3. Difficulties encountered: [list]
+4. Patterns that worked well: [list]
+
+This will update neural weights and improve future recommendations."
+```
+
+### Architecture Evolution Tracking
+
+```markdown
+"Track how the neural architecture evolves for this project:
+1. Store initial architecture configuration
+2. After each significant milestone, note:
+   - What adaptations occurred
+   - Why they were triggered (vanishing gradients, overfitting, etc.)
+   - Performance improvements observed
+3. Create a timeline of architectural evolution"
 ```
 
 ## Advanced Prompting Strategies
@@ -208,13 +284,14 @@ Memory namespaces:
 ### General Development
 
 ```markdown
-"I have neural memory available via MCP. Let's work on [task]. Please:
+"I have neural memory with adaptive learning available via MCP. Let's work on [task]. Please:
 1. First run memory stats to see what's available
 2. Search for any relevant previous work on [topic]
-3. Store important decisions as 'decisions/[date]/[topic]'
-4. Build on previous knowledge where possible
+3. Let the adaptive system analyze the task and recommend the best cognitive pattern
+4. Store important decisions as 'decisions/[date]/[topic]'
+5. Build on previous knowledge and successful patterns
 
-What relevant memories do you find?"
+What relevant memories and patterns do you find?"
 ```
 
 ### Continuing Previous Work
@@ -224,9 +301,11 @@ What relevant memories do you find?"
 1. Retrieve memory with key 'project/neural-memory/last-session'
 2. Search for any unresolved issues or TODOs
 3. Load the current architecture from memory
-4. Update progress as we work
+4. Check if the adaptive system has learned any new patterns since last session
+5. Apply any architectural optimizations discovered
+6. Update progress as we work
 
-What was our last status?"
+What was our last status and what improvements has the system learned?"
 ```
 
 ### Learning New Technology
@@ -285,14 +364,47 @@ Start with searching what we already know."
 4. Batch related memory operations"
 ```
 
+## Monitoring Adaptive Learning
+
+### Checking Learning Progress
+
+```markdown
+"Show me how the adaptive system has improved:
+1. Display statistics on learned patterns
+2. Show success rate improvements over time
+3. List most effective cognitive patterns for different task types
+4. Identify areas where learning is still needed"
+```
+
+### Pattern Effectiveness Analysis
+
+```markdown
+"Analyze pattern effectiveness for my workflow:
+1. Which cognitive patterns work best for my coding style?
+2. What task types benefit most from adaptive learning?
+3. Where has cross-domain transfer been successful?
+4. What architectural optimizations have emerged?"
+```
+
+### Meta-Learning Insights
+
+```markdown
+"Provide meta-learning insights:
+1. How quickly does the system adapt to new domains?
+2. What patterns transfer best between projects?
+3. Which learning strategies are most effective?
+4. How can I better leverage the adaptive capabilities?"
+```
+
 ## Conclusion
 
-Effective use of neural memory transforms Claude from a stateless assistant to a learning partner that builds knowledge over time. The key is being explicit about memory operations and using consistent, descriptive naming conventions.
+Effective use of neural memory with adaptive learning transforms Claude from a stateless assistant to an evolving learning partner that continuously improves. The system learns from every interaction, adapts to your specific needs, and discovers optimal approaches for your unique challenges.
 
 Remember:
 - **Store early and often** - Capture decisions and learnings as they happen
-- **Search before solving** - Leverage past experience
-- **Organize thoughtfully** - Good key structure makes retrieval easier
-- **Maintain actively** - Keep memory relevant and organized
+- **Search before solving** - Leverage past experience and learned patterns
+- **Provide feedback** - Help the system learn by rating outcomes
+- **Trust the recommendations** - The system improves with use
+- **Monitor evolution** - Track how architectures and patterns adapt
 
-With these practices, your neural memory becomes a powerful knowledge base that grows more valuable with each conversation.
+With these practices, your neural memory becomes not just a knowledge base, but an intelligent system that evolves to serve you better with each conversation.

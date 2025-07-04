@@ -88,6 +88,7 @@ pub struct TrainingState {
     pub epoch: usize,
     pub global_step: usize,
     pub learning_rate: f32,
+    pub weight_decay: f32,
     pub gradients: Vec<Arc<RwLock<Gradient>>>,
     pub loss_history: Vec<f32>,
 }
@@ -98,6 +99,7 @@ impl TrainingState {
             epoch: 0,
             global_step: 0,
             learning_rate,
+            weight_decay: 0.0,
             gradients: (0..num_layers)
                 .map(|_| Arc::new(RwLock::new(Gradient::new())))
                 .collect(),
@@ -115,5 +117,21 @@ impl TrainingState {
     
     pub fn record_loss(&mut self, loss: f32) {
         self.loss_history.push(loss);
+    }
+    
+    pub fn compute_gradient_norm(&self) -> f32 {
+        let mut total_norm = 0.0;
+        
+        for gradient in &self.gradients {
+            let grad = gradient.read();
+            if let Some(weights) = &grad.weights {
+                total_norm += weights.iter().map(|g| g * g).sum::<f32>();
+            }
+            if let Some(bias) = &grad.bias {
+                total_norm += bias.iter().map(|g| g * g).sum::<f32>();
+            }
+        }
+        
+        total_norm.sqrt()
     }
 }

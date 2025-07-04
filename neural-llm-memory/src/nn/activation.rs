@@ -2,7 +2,7 @@
 
 use ndarray::Array2;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ActivationFunction {
     ReLU,
     LeakyReLU(f32),
@@ -13,6 +13,8 @@ pub enum ActivationFunction {
     Mish,
     ELU(f32),
     Identity,
+    #[serde(rename = "SiLU")]
+    SiLU, // Alias for Swish
 }
 
 pub struct Activation;
@@ -25,7 +27,7 @@ impl Activation {
             ActivationFunction::GELU => Self::gelu(input),
             ActivationFunction::Sigmoid => Self::sigmoid(input),
             ActivationFunction::Tanh => Self::tanh(input),
-            ActivationFunction::Swish => Self::swish(input),
+            ActivationFunction::Swish | ActivationFunction::SiLU => Self::swish(input),
             ActivationFunction::Mish => Self::mish(input),
             ActivationFunction::ELU(alpha) => Self::elu(input, alpha),
             ActivationFunction::Identity => input.clone(),
@@ -43,7 +45,7 @@ impl Activation {
             ActivationFunction::GELU => Self::gelu_backward(grad_output, input),
             ActivationFunction::Sigmoid => Self::sigmoid_backward(grad_output, input),
             ActivationFunction::Tanh => Self::tanh_backward(grad_output, input),
-            ActivationFunction::Swish => Self::swish_backward(grad_output, input),
+            ActivationFunction::Swish | ActivationFunction::SiLU => Self::swish_backward(grad_output, input),
             ActivationFunction::Mish => Self::mish_backward(grad_output, input),
             ActivationFunction::ELU(alpha) => Self::elu_backward(grad_output, input, alpha),
             ActivationFunction::Identity => grad_output.clone(),

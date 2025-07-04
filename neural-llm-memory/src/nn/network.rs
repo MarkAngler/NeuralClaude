@@ -92,6 +92,59 @@ impl NeuralNetwork {
     pub fn predict(&self, input: &Array2<f32>) -> Array2<f32> {
         self.forward(input, false)
     }
+    
+    // Methods for self-optimizing support
+    pub fn get_layers(&self) -> &[Box<dyn Layer + Send + Sync>] {
+        &self.layers
+    }
+    
+    pub fn get_learning_rate(&self) -> f32 {
+        self.training_state.read().learning_rate
+    }
+    
+    pub fn set_learning_rate(&mut self, lr: f32) {
+        self.training_state.write().learning_rate = lr;
+    }
+    
+    pub fn get_weight_decay(&self) -> f32 {
+        self.training_state.read().weight_decay
+    }
+    
+    pub fn set_weight_decay(&mut self, decay: f32) {
+        self.training_state.write().weight_decay = decay;
+    }
+    
+    pub fn increase_dropout(&mut self, increase: f32) {
+        for layer in &mut self.layers {
+            layer.increase_dropout(increase);
+        }
+    }
+    
+    pub fn perturb_weights(&mut self, noise_scale: f32) {
+        for layer in &mut self.layers {
+            layer.perturb_weights(noise_scale);
+        }
+    }
+    
+    pub fn get_current_metrics(&self) -> Option<NetworkMetrics> {
+        let state = self.training_state.read();
+        if state.loss_history.is_empty() {
+            return None;
+        }
+        
+        Some(NetworkMetrics {
+            train_loss: state.loss_history.last().cloned().unwrap_or(0.0),
+            val_loss: 0.0, // Would need to be tracked separately
+            gradient_norm: state.compute_gradient_norm(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NetworkMetrics {
+    pub train_loss: f32,
+    pub val_loss: f32,
+    pub gradient_norm: f32,
 }
 
 pub struct NetworkBuilder {

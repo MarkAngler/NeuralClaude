@@ -73,6 +73,30 @@ pub trait Layer: Send + Sync {
     fn update_weights(&mut self, gradient: &Gradient, learning_rate: f32);
     fn get_params(&self) -> Vec<&Array2<f32>>;
     fn get_params_mut(&mut self) -> Vec<&mut Array2<f32>>;
+    
+    // Methods for self-optimizing support
+    fn count_parameters(&self) -> usize {
+        self.get_params().iter().map(|p| p.len()).sum()
+    }
+    
+    fn output_size(&self) -> Option<usize> {
+        None // Default implementation, override in specific layers
+    }
+    
+    fn increase_dropout(&mut self, _increase: f32) {
+        // Default no-op, override in dropout layers
+    }
+    
+    fn perturb_weights(&mut self, noise_scale: f32) {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        
+        for param in self.get_params_mut() {
+            for val in param.iter_mut() {
+                *val += rng.gen_range(-noise_scale..noise_scale);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +201,10 @@ impl Layer for LinearLayer {
         } else {
             vec![&mut self.weights]
         }
+    }
+    
+    fn output_size(&self) -> Option<usize> {
+        Some(self.weights.shape()[1])
     }
 }
 
@@ -303,6 +331,10 @@ impl Layer for DropoutLayer {
     
     fn get_params_mut(&mut self) -> Vec<&mut Array2<f32>> {
         vec![]
+    }
+    
+    fn increase_dropout(&mut self, increase: f32) {
+        self.dropout_rate = (self.dropout_rate + increase).min(0.9); // Cap at 90%
     }
 }
 
