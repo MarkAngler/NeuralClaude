@@ -323,6 +323,38 @@ Initialize a swarm and configure each agent to use neural memory for coordinatio
 - Store findings in shared memory namespace
 - Search for relevant patterns before acting
 - Build collective knowledge over time
+- Leverage adaptive learning for smarter agent coordination
+- Each agent type uses appropriate cognitive patterns:
+  - Researchers use divergent thinking for exploration
+  - Coders use convergent thinking for implementation
+  - Analysts use systems thinking for architecture
+```
+
+### Adaptive Learning in Action
+
+Example workflow:
+```markdown
+Task: "Implement user authentication with JWT"
+
+1. System analyzes context:
+   - Task type: Implementation
+   - Domain: Security/Auth
+   - Complexity: Moderate
+   - Files: JavaScript/Node.js
+
+2. Searches memory for similar tasks:
+   - Finds previous OAuth implementation
+   - Retrieves JWT best practices from past projects
+
+3. Recommends approach:
+   - Pattern: Convergent (focused implementation)
+   - Adaptations: Adjust for your specific framework
+   - Confidence: 92% based on past success
+
+4. Learns from execution:
+   - Tracks implementation time and errors
+   - Updates neural weights
+   - Stores successful pattern for future use
 ```
 
 ## 📊 Performance
