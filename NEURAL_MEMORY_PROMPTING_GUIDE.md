@@ -1,410 +1,98 @@
-# Neural Memory MCP - Prompting Guide
+# Claude Configuration for NeuralClaude Project
 
-This guide explains how to effectively prompt Claude to use the neural memory MCP server for persistent memory across conversations.
+## 🧠 PRIORITY #1: USE NEURAL MEMORY
 
-## Quick Start
+### Memory Tools Available:
+- `mcp__neural-memory__store_memory` - Store with key/content
+- `mcp__neural-memory__retrieve_memory` - Get by key  
+- `mcp__neural-memory__search_memory` - Find similar content
+- `mcp__neural-memory__memory_stats` - Check usage
 
-Your neural memory MCP server is configured as `mcp__neural-memory__` and provides these tools:
+### MANDATORY Memory Usage:
+1. **Start of conversation**: Search for relevant context
+2. **During work**: Store decisions, solutions, progress
+3. **End of task**: Store summary and next steps
+4. **Before answering**: Check if similar was solved before
 
-- `mcp__neural-memory__store_memory` - Store important information with a key
-- `mcp__neural-memory__retrieve_memory` - Retrieve specific memories by key
-- `mcp__neural-memory__search_memory` - Search for similar memories using neural similarity
-- `mcp__neural-memory__memory_stats` - Get memory system statistics
-
-**New Adaptive Learning Features:**
-- Automatically learns from successful patterns and adapts to your workflow
-- Self-optimizing neural networks that evolve their architecture for better performance
-- 6 cognitive patterns (Convergent, Divergent, Lateral, Systems, Critical, Abstract)
-- Cross-domain pattern transfer and meta-learning capabilities
-
-## Initial Setup Prompt
-
-Use this prompt when starting a new conversation:
-
-```markdown
-You have a neural memory MCP server configured as `mcp__neural-memory__`. This provides persistent memory across our conversations using these tools:
-
-- `mcp__neural-memory__store_memory`: Store important information with a key
-- `mcp__neural-memory__retrieve_memory`: Retrieve specific memories by key
-- `mcp__neural-memory__search_memory`: Search for similar memories using neural similarity
-- `mcp__neural-memory__memory_stats`: Get memory system statistics
-
-Please use this memory system to:
-1. Store key decisions, context, and learnings from our work
-2. Retrieve relevant memories when starting new tasks
-3. Search for similar past experiences when solving problems
-4. Learn from successful patterns to improve future performance
-
-The system features adaptive learning that:
-- Analyzes task context and recommends optimal cognitive patterns
-- Learns from success/failure to update neural weights
-- Auto-stores successful patterns for future use
-- Transfers patterns between different domains
+### Memory Key Patterns:
+```
+project/neuralclaude/[topic]
+session/[date]/[summary|decisions|next-steps]
+errors/[language]/[error-type]
+solutions/[problem-type]
+patterns/[language]/[pattern-name]
 ```
 
-## Effective Usage Patterns
+## 🚀 Batch Operations
 
-### 1. Project Context Storage
+### ALWAYS batch multiple operations:
+```javascript
+// ✅ CORRECT - Single message
+[Multiple tool calls in one message]:
+  mcp__neural-memory__search_memory("previous work")
+  mcp__neural-memory__retrieve_memory("project/neuralclaude/status")
+  Read("file1.rs")
+  Read("file2.rs")
+  Write("newfile.rs", content)
 
-```markdown
-"As we work on [project], please store important decisions and context in memory using descriptive keys like:
-- `project/[name]/architecture` - Design decisions
-- `project/[name]/bugs/[id]` - Bug fixes and solutions
-- `project/[name]/features/[name]` - Feature implementations
-- `project/[name]/dependencies` - Key dependencies and versions"
+// ❌ WRONG - Multiple messages
+Message 1: Search memory
+Message 2: Retrieve memory  
+Message 3: Read file
 ```
 
-### 2. Session Continuity
-
-```markdown
-"Before starting, search memory for any relevant context from previous sessions about [topic]. Store our progress at key milestones using keys like:
-- `session/[date]/summary` - Session summaries
-- `session/[date]/decisions` - Key decisions made
-- `session/[date]/next-steps` - Action items for next session"
-```
-
-### 3. Learning Pattern Storage
-
-```markdown
-"When we solve complex problems or discover patterns, store them as:
-- `patterns/[language]/[pattern-name]` - Code patterns
-- `solutions/[problem-type]` - Problem solutions
-- `errors/[error-type]/fix` - Error resolutions
-- `optimizations/[technique]` - Performance improvements"
-```
-
-### 4. Code Snippet Library
-
-```markdown
-"Store useful code snippets and examples:
-- `snippets/[language]/[functionality]` - Reusable code
-- `examples/[framework]/[feature]` - Framework examples
-- `templates/[type]` - Project templates"
-```
-
-## Example Prompts by Use Case
-
-### Starting a New Session
-
-```markdown
-"Check memory for any previous work on neural networks or Rust projects. Specifically search for:
-1. Previous architecture decisions
-2. Unresolved issues or bugs
-3. Next steps from last session
-Then let's continue building the memory framework, storing key decisions as we go."
-```
-
-### Debugging Session
-
-```markdown
-"I'm encountering error: '[error message]'
-1. Search memory for similar error patterns
-2. If we find a solution, apply it
-3. If this is new, store our solution with key 'errors/rust/[error-type]' once resolved
-4. Also store the debugging process for future reference"
-```
-
-### Code Review
-
-```markdown
-"We're reviewing [component]. Please:
-1. Search memory for previous reviews of similar components
-2. Store this architecture decision with key 'architecture/neural-memory/[component]'
-3. Note any patterns that should be applied elsewhere
-4. Store review feedback for future improvements"
-```
-
-### Knowledge Building
-
-```markdown
-"As you learn about [technology]:
-1. Store key insights with descriptive keys
-2. Before answering questions, search memory for relevant stored knowledge
-3. Update existing memories if you find better information
-4. Create a knowledge map with keys like 'knowledge/[topic]/[subtopic]'"
-```
-
-### Feature Implementation
-
-```markdown
-"Implementing [feature name]:
-1. Search memory for similar features we've built
-2. Check for relevant design patterns
-3. Store the implementation approach as 'features/[project]/[feature]/approach'
-4. Save any reusable components for future use"
-```
-
-## Best Practices for Memory Keys
-
-### Key Structure
-
-Use hierarchical, descriptive keys:
-
-```
-category/subcategory/specific-item
-```
-
-Examples:
-- `project/neural-memory/architecture/tensor-design`
-- `errors/rust/lifetime/async-trait-fix`
-- `patterns/rust/builder/with-validation`
-- `meeting/2024-01-15/action-items`
-
-### Key Conventions
-
-1. **Use lowercase with hyphens**: `my-key-name` not `MyKeyName`
-2. **Be specific**: `bugs/auth/jwt-refresh-race-condition` not `bugs/auth-bug`
-3. **Include dates when relevant**: `release/2024-01-15/notes`
-4. **Version important items**: `api/v2/endpoints/user-create`
-
-## Integration with ruv-swarm
-
-When using both neural memory and multiagent or swarm coordination:
-
-```markdown
-"Initialize a swarm for [task]. Configure each agent to:
-1. Check neural memory for relevant context using search before starting
-2. Store findings with keys like 'swarm/[task]/[agent]/[finding]'
-3. Share important discoveries by storing in shared memory namespace
-4. Search memory for similar patterns when encountering obstacles
-
-Memory namespaces:
-- `swarm/shared/` - Information all agents should know
-- `swarm/[task]/[agent]/` - Agent-specific findings
-- `swarm/patterns/` - Discovered coordination patterns"
-```
-
-## Adaptive Learning Prompts
-
-### Leveraging Cognitive Patterns
-
-```markdown
-"For this [task type], let the adaptive system recommend the best cognitive pattern:
-- **Convergent**: For focused problem-solving (debugging, optimization)
-- **Divergent**: For creative exploration (feature design, brainstorming)
-- **Lateral**: For connecting unrelated concepts (integration, innovation)
-- **Systems**: For understanding interconnections (architecture, dependencies)
-- **Critical**: For analytical evaluation (code review, testing)
-- **Abstract**: For high-level conceptualization (design patterns, frameworks)
-
-Store the pattern used and outcome for future learning."
-```
-
-### Pattern-Based Problem Solving
-
-```markdown
-"I need to [task description]. Please:
-1. Search memory for similar tasks and their successful patterns
-2. Let the adaptive system recommend the best approach based on:
-   - Task type and complexity
-   - Previous success rates
-   - Domain similarity
-3. Apply the recommended pattern with adaptations
-4. Store the outcome to improve future recommendations"
-```
-
-### Cross-Domain Learning
-
-```markdown
-"I've successfully used [pattern] for [original task]. Now I need to [new task]:
-1. Analyze how the successful pattern can be adapted
-2. Identify key differences between domains
-3. Generate specific adaptations for the new context
-4. Store the cross-domain transfer for meta-learning"
-```
-
-### Performance Feedback Loop
-
-```markdown
-"After completing [task], provide feedback to the adaptive system:
-1. Rate success (0-100%): [rating]
-2. Time taken vs. expected: [actual/expected]
-3. Difficulties encountered: [list]
-4. Patterns that worked well: [list]
-
-This will update neural weights and improve future recommendations."
-```
-
-### Architecture Evolution Tracking
-
-```markdown
-"Track how the neural architecture evolves for this project:
-1. Store initial architecture configuration
-2. After each significant milestone, note:
-   - What adaptations occurred
-   - Why they were triggered (vanishing gradients, overfitting, etc.)
-   - Performance improvements observed
-3. Create a timeline of architectural evolution"
-```
-
-## Advanced Prompting Strategies
-
-### 1. Memory-Augmented Problem Solving
-
-```markdown
-"For this problem:
-1. First search memory for similar problems and their solutions
-2. Identify patterns from past solutions
-3. Apply relevant patterns to current problem
-4. Store our solution with comparisons to past approaches"
-```
-
-### 2. Incremental Learning
-
-```markdown
-"As we work:
-1. Continuously update memory with new learnings
-2. Revise previous memories if we find better approaches
-3. Build a knowledge graph by linking related memories
-4. Track which memories are most useful (access patterns)"
-```
-
-### 3. Context Switching
-
-```markdown
-"Switching to work on [different project]:
-1. Store current context with key 'context/[project]/[timestamp]'
-2. Search and load context for new project
-3. Note any relevant crossover patterns
-4. Maintain separate memory namespaces for each project"
-```
-
-### 4. Team Knowledge Sharing
-
-```markdown
-"For team collaboration:
-1. Store decisions in 'team/decisions/[date]/[topic]'
-2. Document patterns in 'team/patterns/[category]'
-3. Share debugging solutions in 'team/solutions/[problem]'
-4. Create onboarding memories in 'team/onboarding/[topic]'"
-```
-
-## Example Conversation Starters
-
-### General Development
-
-```markdown
-"I have neural memory with adaptive learning available via MCP. Let's work on [task]. Please:
-1. First run memory stats to see what's available
-2. Search for any relevant previous work on [topic]
-3. Let the adaptive system analyze the task and recommend the best cognitive pattern
-4. Store important decisions as 'decisions/[date]/[topic]'
-5. Build on previous knowledge and successful patterns
-
-What relevant memories and patterns do you find?"
-```
-
-### Continuing Previous Work
-
-```markdown
-"Let's continue our neural memory framework. Please:
-1. Retrieve memory with key 'project/neural-memory/last-session'
-2. Search for any unresolved issues or TODOs
-3. Load the current architecture from memory
-4. Check if the adaptive system has learned any new patterns since last session
-5. Apply any architectural optimizations discovered
-6. Update progress as we work
-
-What was our last status and what improvements has the system learned?"
-```
-
-### Learning New Technology
-
-```markdown
-"I want to learn about [technology]. Please:
-1. Search memory for any existing knowledge
-2. As you explain, store key concepts
-3. Save practical examples and use cases
-4. Create a learning path in memory
-
-Start with searching what we already know."
-```
-
-## Memory Maintenance
-
-### Periodic Cleanup
-
-```markdown
-"Let's review our memory usage:
-1. Show memory stats
-2. Search for duplicate or outdated entries
-3. Consolidate related memories
-4. Archive old project memories with prefix 'archive/'"
-```
-
-### Memory Organization
-
-```markdown
-"Help me organize memories:
-1. List all memory keys matching pattern '[pattern]'
-2. Suggest better key structures
-3. Identify missing categories
-4. Create an index of important memories"
-```
-
-## Troubleshooting
-
-### If Memory Retrieval Fails
-
-```markdown
-"If you can't retrieve a memory:
-1. Try searching with different keywords
-2. Check memory stats to ensure system is working
-3. Use broader search terms
-4. Store a new version if the old one is inaccessible"
-```
-
-### Performance Optimization
-
-```markdown
-"To optimize memory usage:
-1. Check cache hit rates with memory stats
-2. Store frequently accessed items with shorter keys
-3. Use search instead of retrieve when unsure of exact keys
-4. Batch related memory operations"
-```
-
-## Monitoring Adaptive Learning
-
-### Checking Learning Progress
-
-```markdown
-"Show me how the adaptive system has improved:
-1. Display statistics on learned patterns
-2. Show success rate improvements over time
-3. List most effective cognitive patterns for different task types
-4. Identify areas where learning is still needed"
-```
-
-### Pattern Effectiveness Analysis
-
-```markdown
-"Analyze pattern effectiveness for my workflow:
-1. Which cognitive patterns work best for my coding style?
-2. What task types benefit most from adaptive learning?
-3. Where has cross-domain transfer been successful?
-4. What architectural optimizations have emerged?"
-```
-
-### Meta-Learning Insights
-
-```markdown
-"Provide meta-learning insights:
-1. How quickly does the system adapt to new domains?
-2. What patterns transfer best between projects?
-3. Which learning strategies are most effective?
-4. How can I better leverage the adaptive capabilities?"
-```
-
-## Conclusion
-
-Effective use of neural memory with adaptive learning transforms Claude from a stateless assistant to an evolving learning partner that continuously improves. The system learns from every interaction, adapts to your specific needs, and discovers optimal approaches for your unique challenges.
-
-Remember:
-- **Store early and often** - Capture decisions and learnings as they happen
-- **Search before solving** - Leverage past experience and learned patterns
-- **Provide feedback** - Help the system learn by rating outcomes
-- **Trust the recommendations** - The system improves with use
-- **Monitor evolution** - Track how architectures and patterns adapt
-
-With these practices, your neural memory becomes not just a knowledge base, but an intelligent system that evolves to serve you better with each conversation.
+## 📝 Task Management
+
+Use TodoWrite for complex tasks (3+ steps). Update status immediately:
+- Mark `in_progress` BEFORE starting
+- Mark `completed` IMMEDIATELY after finishing
+- Only one task `in_progress` at a time
+
+## 🎯 Project-Specific Context
+
+### NeuralClaude MCP Server:
+- **Purpose**: Distribute MCP server via npm (NOT a Node.js library)
+- **Package**: `neuralclaude` on npm
+- **Platform**: Linux ARM64 only currently
+- **Installation**: `npm install -g neuralclaude`
+- **Usage**: Run `neuralclaude` to start MCP server
+
+### Key Files:
+- `/neural-llm-memory/` - Main Rust project
+- `/neural-llm-memory/src/bin/mcp_server_simple.rs` - MCP server
+- `/neural-llm-memory/package.json` - npm package config
+
+## 🔧 Development Workflow
+
+1. **Before any task**:
+   ```
+   mcp__neural-memory__search_memory("[task topic]")
+   mcp__neural-memory__memory_stats()
+   ```
+
+2. **During development**:
+   ```
+   mcp__neural-memory__store_memory("project/neuralclaude/[decision]", "details...")
+   ```
+
+3. **After completing**:
+   ```
+   mcp__neural-memory__store_memory("session/[date]/summary", "what was done")
+   mcp__neural-memory__store_memory("session/[date]/next-steps", "what's next")
+   ```
+
+## ⚠️ Common Pitfalls to Avoid
+
+1. **Forgetting to use memory** - Check memory FIRST, store results ALWAYS
+2. **Sequential operations** - Batch related tool calls
+3. **Not updating todos** - Mark completed immediately
+4. **Creating files unnecessarily** - Edit existing files when possible
+
+## 🎭 Response Style
+
+- Be concise and direct
+- Answer in <4 lines unless asked for detail
+- No unnecessary preambles or explanations
+- Use visual indicators for clarity when helpful
+
+Remember: **Neural memory is your superpower - USE IT!**
