@@ -1,0 +1,11 @@
+target/
+src/
+examples/
+benches/
+tests/
+.git/
+.github/
+Cargo.toml
+Cargo.lock
+*.rs
+.gitignore

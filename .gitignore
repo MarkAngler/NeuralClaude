@@ -149,3 +149,23 @@ $RECYCLE.BIN/
 *.lnk
 SELF_OPTIMIZING_IMPLEMENTATION.md
 SELF_OPTIMIZING_NETWORKS_DESIGN.md
+neural-llm-memory/release.sh
+neural-llm-memory/exported_memories.json
+
+# npm package build artifacts
+neural-llm-memory/bin/
+neural-llm-memory/index.node
+neural-llm-memory/*.tgz
+neural-llm-memory/package-lock.json
+
+# Build binaries
+neuralclaude-server
+neuralclaude-server.exe
+*.node
+
+# npm publish files (keep in git)
+# neural-llm-memory/package.json
+# neural-llm-memory/postinstall.js
+# neural-llm-memory/README.md
+# neural-llm-memory/MCP_SETUP.md
+# neural-llm-memory/.npmignore

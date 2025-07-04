@@ -1,0 +1,34 @@
+{
+  "name": "neuralclaude",
+  "version": "0.1.0",
+  "description": "Neural LLM Memory MCP Server - High-performance neural memory system for AI assistants",
+  "bin": {
+    "neuralclaude": "./bin/neuralclaude"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "keywords": [
+    "mcp",
+    "neural",
+    "memory",
+    "llm",
+    "ai"
+  ],
+  "author": "Neural Memory Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markangler/NeuralClaude.git"
+  },
+  "files": [
+    "bin/",
+    "postinstall.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": ["linux"],
+  "cpu": ["arm64"]
+}

@@ -15,20 +15,36 @@ A high-performance neural network framework designed for implementing persistent
 
 ## 📋 Prerequisites
 
-- Rust 1.70 or higher
 - Claude Desktop app
-- Git
+- Node.js and npm (for quick install)
+- **OR** Rust 1.70+ and Git (for building from source)
 
 ## 🛠️ Installation
 
-### 1. Clone the Repository
+### Quick Install via npm (Recommended)
+
+Install the pre-built MCP server directly:
+
+```bash
+npm install -g neuralclaude
+```
+
+**Note:** The npm package currently only supports Linux ARM64 (aarch64). For other platforms, please build from source below.
+
+After installation, skip to step 3 (Configure Claude Desktop).
+
+### Build from Source
+
+For other platforms or if you want to build from source:
+
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/yourusername/neural-llm-memory.git
 cd neural-llm-memory
 ```
 
-### 2. Build the Project
+#### 2. Build the Project
 
 ```bash
 # Build in release mode for optimal performance
@@ -40,21 +56,26 @@ cargo test
 
 ### 3. Configure Claude Desktop
 
-Add the MCP server to Claude Desktop using the CLI:
+Find your Claude Desktop configuration file:
 
-```bash
-# Add the neural memory MCP server
-claude mcp add neural-memory /path/to/neural-llm-memory/target/release/mcp_server_simple
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+Add the MCP server to the `mcpServers` section:
+
+#### If installed via npm:
+```json
+{
+  "mcpServers": {
+    "neuralclaude": {
+      "command": "neuralclaude"
+    }
+  }
+}
 ```
 
-Or manually edit Claude's configuration file:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-**Linux**: `~/.config/Claude/claude_desktop_config.json`
-
-Add this to the `mcpServers` section:
-
+#### If built from source:
 ```json
 {
   "mcpServers": {
