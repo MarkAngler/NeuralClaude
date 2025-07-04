@@ -314,22 +314,6 @@ To change the storage location, modify the path in `mcp_server_simple.rs`.
 
 See [NEURAL_MEMORY_PROMPTING_GUIDE.md](./NEURAL_MEMORY_PROMPTING_GUIDE.md) for comprehensive prompting strategies.
 
-### Integration with ruv-swarm
-
-The neural memory system can be combined with ruv-swarm for enhanced capabilities:
-
-```markdown
-Initialize a swarm and configure each agent to use neural memory for coordination:
-- Store findings in shared memory namespace
-- Search for relevant patterns before acting
-- Build collective knowledge over time
-- Leverage adaptive learning for smarter agent coordination
-- Each agent type uses appropriate cognitive patterns:
-  - Researchers use divergent thinking for exploration
-  - Coders use convergent thinking for implementation
-  - Analysts use systems thinking for architecture
-```
-
 ### Adaptive Learning in Action
 
 Example workflow:
