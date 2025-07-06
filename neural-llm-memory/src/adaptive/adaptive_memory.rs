@@ -451,6 +451,13 @@ impl AdaptiveMemoryModule {
         
         println!("Architecture swap complete: {}", new_arch.architecture_summary);
         
+        // Save the evolved network architecture
+        if let Err(e) = self.save_evolved_network().await {
+            eprintln!("Failed to save evolved network: {}", e);
+        } else {
+            println!("✅ Saved evolved network architecture");
+        }
+        
         Ok(())
     }
     
@@ -460,6 +467,33 @@ impl AdaptiveMemoryModule {
         let memory = self.active_memory.read().await;
         let (size, _, _, _) = memory.get_stats().await;
         size * 1024 // Rough estimate
+    }
+}
+
+impl AdaptiveMemoryModule {
+    /// Get reference to evolver for persistence operations
+    pub(crate) fn evolver(&self) -> &Arc<Mutex<BackgroundEvolver>> {
+        &self.evolver
+    }
+    
+    /// Get reference to usage collector for persistence operations
+    pub(crate) fn usage_collector(&self) -> &Arc<UsageCollector> {
+        &self.usage_collector
+    }
+    
+    /// Get reference to operation count for persistence operations
+    pub(crate) fn operation_count(&self) -> &Arc<RwLock<usize>> {
+        &self.operation_count
+    }
+    
+    /// Get reference to config for persistence operations
+    pub(crate) fn config(&self) -> &Arc<RwLock<AdaptiveConfig>> {
+        &self.config
+    }
+    
+    /// Get reference to active memory for persistence operations
+    pub(crate) fn active_memory(&self) -> &Arc<RwLock<PersistentMemoryModule>> {
+        &self.active_memory
     }
 }
 

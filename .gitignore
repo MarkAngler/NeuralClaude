@@ -175,3 +175,12 @@ neural-llm-memory/ADAPTIVE_FLOW.md
 neural-llm-memory/ADAPTIVE_MCP_PLAN.md
 neural-llm-memory/FEEDBACK_INTEGRATION.md
 neural-llm-memory/PERSISTENCE_PLAN.md
+neural-llm-memory/ADAPTIVE_PERSISTENCE.md
+neural-llm-memory/manual_test.sh
+neural-llm-memory/PERSISTENCE_README.md
+neural-llm-memory/test_adaptive_persistence.py
+neural-llm-memory/test_mcp_persistence.js
+neural-llm-memory/test_persistence_simple.py
+neural-llm-memory/test_persistence.py
+neural-llm-memory/test_run.sh
+neural-llm-memory/adaptive_memory_data/adaptive_state.json

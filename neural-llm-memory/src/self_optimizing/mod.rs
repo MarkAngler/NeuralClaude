@@ -15,6 +15,7 @@ pub mod evaluator;
 pub mod optimizer;
 pub mod network_ext;
 pub mod optimizer_ext;
+pub mod persistence_ext;
 
 pub use genome::{ArchitectureGenome, LayerGene, ConnectionGene};
 pub use evolution::{EvolutionController, EvolutionConfig};

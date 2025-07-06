@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
 use neural_llm_memory::{PersistentMemoryModule, PersistentMemoryBuilder, MemoryConfig};
-use neural_llm_memory::adaptive::{AdaptiveMemoryModule, AdaptiveConfig};
+use neural_llm_memory::adaptive::AdaptiveMemoryModule;
 use ndarray::Array2;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -59,12 +59,12 @@ impl MemoryServer {
         
         // Remove debug print during initialization
         
-        // Create adaptive memory module
+        // Create adaptive memory module with persistence
         let adaptive_module = runtime.block_on(async {
             let base_config = MemoryConfig::default();
-            let adaptive_config = AdaptiveConfig::default();
             
-            AdaptiveMemoryModule::with_config(base_config, adaptive_config)
+            // Try to load from saved state
+            AdaptiveMemoryModule::new_with_persistence(base_config, true)
                 .await
                 .expect("Failed to create adaptive memory module")
         });
@@ -80,9 +80,23 @@ impl MemoryServer {
                 .expect("Failed to create persistent memory module")
         });
         
+        // Wrap adaptive module in Arc
+        let adaptive_module_arc = Arc::new(Mutex::new(adaptive_module));
+        
+        // Start auto-save task for adaptive module (every 5 minutes)
+        {
+            let module_clone = Arc::clone(&adaptive_module_arc);
+            runtime.spawn(async move {
+                neural_llm_memory::adaptive::start_auto_save_task(
+                    Arc::new(module_clone.lock().await.clone()),
+                    300
+                ).await;
+            });
+        }
+        
         Self {
             memory_module: Arc::new(Mutex::new(memory_module)),
-            adaptive_module: Some(Arc::new(Mutex::new(adaptive_module))),
+            adaptive_module: Some(adaptive_module_arc),
             runtime,
             adaptive_enabled,
         }
@@ -869,8 +883,19 @@ fn main() -> Result<()> {
     // Shutdown and save before exit
     eprintln!("💾 Saving memories before shutdown...");
     server.runtime.block_on(async {
+        // Save regular memory module
         let memory = server.memory_module.lock().await;
         memory.shutdown().await.ok();
+        
+        // Save adaptive module state
+        if let Some(adaptive) = &server.adaptive_module {
+            let module = adaptive.lock().await;
+            if let Err(e) = module.save_state("./adaptive_memory_data").await {
+                eprintln!("Failed to save adaptive state: {}", e);
+            } else {
+                eprintln!("✅ Saved adaptive neural network state");
+            }
+        }
     });
     
     Ok(())
