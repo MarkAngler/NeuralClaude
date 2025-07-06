@@ -186,3 +186,5 @@ neural-llm-memory/test_run.sh
 neural-llm-memory/adaptive_memory_data/adaptive_state.json
 release.sh
 adaptive_memory_data/memories.json
+fixes_implemented.md
+agentic_test1_results.md

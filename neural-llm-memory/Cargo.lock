@@ -1018,6 +1018,7 @@ dependencies = [
  "crossbeam",
  "dashmap",
  "flate2",
+ "lazy_static",
  "lru",
  "metrics",
  "metrics-exporter-prometheus",

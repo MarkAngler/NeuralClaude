@@ -591,6 +591,11 @@ impl ServerHandler for NeuralMemoryServer {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Increase default max listeners to prevent warnings
+    if std::env::var("NODE_OPTIONS").is_err() {
+        std::env::set_var("NODE_OPTIONS", "--max-old-space-size=4096");
+    }
+    
     // Initialize logging to stderr to avoid interfering with stdio transport
     use tracing_subscriber::{self, EnvFilter};
     tracing_subscriber::fmt()
