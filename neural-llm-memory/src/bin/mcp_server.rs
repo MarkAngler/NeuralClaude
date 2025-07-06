@@ -92,11 +92,7 @@ struct ProvideFeedbackParams {
     #[schemars(description = "Whether the operation helped answer the user")]
     success: bool,
     #[schemars(description = "Relevance score between 0.0 and 1.0")]
-    score: Option<f32>,
-    #[schemars(description = "Why the operation succeeded or failed")]
-    reason: Option<String>,
-    #[schemars(description = "How the result was used (or not used)")]
-    usage_context: Option<String>,
+    score: f32,
 }
 
 // Tool result wrapper for consistent output
@@ -342,9 +338,9 @@ impl NeuralMemoryServer {
         let feedback = OperationFeedback::from_claude(
             params.operation_id,
             params.success,
-            params.score,
-            params.reason,
-            params.usage_context,
+            Some(params.score),
+            None,  // No reason parameter anymore
+            None,  // No usage_context parameter anymore
         );
         
         let module = self.adaptive_module.as_ref().unwrap().lock().await;
@@ -435,7 +431,7 @@ impl ServerHandler for NeuralMemoryServer {
             },
                 Tool {
                     name: "provide_feedback".into(),
-                    description: Some("Claude provides success/failure feedback for memory operations".into()),
+                    description: Some("Provide feedback on memory operation results with success status and usefulness score (0-1)".into()),
                     input_schema: to_input_schema::<ProvideFeedbackParams>(),
                     annotations: None,
             },
@@ -451,6 +447,12 @@ impl ServerHandler for NeuralMemoryServer {
         _context: RequestContext<RoleServer>
     ) -> Result<CallToolResult, rmcp::Error> {
         let params = Value::Object(request.arguments.clone().unwrap_or_default());
+        
+        // Debug logging for provide_feedback calls
+        if request.name == "provide_feedback" {
+            tracing::debug!("provide_feedback called with raw params: {:?}", params);
+            eprintln!("🔍 provide_feedback raw params: {}", serde_json::to_string_pretty(&params).unwrap_or_default());
+        }
         
         let result = match request.name.as_ref() {
             "store_memory" => {
