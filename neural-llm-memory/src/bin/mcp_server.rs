@@ -11,6 +11,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use schemars::JsonSchema;
 
+mod mcp_server_config;
+
 // Import rmcp types
 use rmcp::{
     ServerHandler, ServiceExt,
@@ -122,7 +124,7 @@ impl NeuralMemoryServer {
         
         // Create adaptive module if enabled
         let adaptive_module = if adaptive_enabled {
-            let adaptive_config = AdaptiveConfig::default();
+            let adaptive_config = mcp_server_config::get_adaptive_config();
             let module = AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to create adaptive module: {}", e))?;
