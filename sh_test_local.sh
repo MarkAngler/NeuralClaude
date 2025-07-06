@@ -1,1 +1,0 @@
-cargo build --release --bin mcp_server && cp target/release/mcp_server bin/neuralclaude
