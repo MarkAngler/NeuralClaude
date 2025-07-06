@@ -13,6 +13,8 @@ pub mod genome;
 pub mod evolution;
 pub mod evaluator;
 pub mod optimizer;
+pub mod network_ext;
+pub mod optimizer_ext;
 
 pub use genome::{ArchitectureGenome, LayerGene, ConnectionGene};
 pub use evolution::{EvolutionController, EvolutionConfig};
@@ -52,6 +54,12 @@ pub struct SelfOptimizingConfig {
     /// Hardware constraints
     pub max_memory_mb: usize,
     pub target_inference_ms: f32,
+    
+    /// Fitness threshold for early stopping
+    pub fitness_threshold: f32,
+    
+    /// Adaptation interval for online learning
+    pub adaptation_interval: usize,
 }
 
 impl Default for SelfOptimizingConfig {
@@ -74,6 +82,8 @@ impl Default for SelfOptimizingConfig {
             objectives,
             max_memory_mb: 1024,
             target_inference_ms: 10.0,
+            fitness_threshold: 0.8,
+            adaptation_interval: 100,
         }
     }
 }

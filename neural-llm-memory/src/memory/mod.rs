@@ -5,6 +5,7 @@ pub mod memory_module;
 pub mod retrieval;
 pub mod storage;
 pub mod persistent_memory_module;
+pub mod persistent_memory_module_ext;
 
 pub use memory_bank::{MemoryBank, MemoryEntry};
 pub use memory_module::{MemoryModule, MemoryConfig};

@@ -196,6 +196,11 @@ impl PersistentMemoryModule {
         self.save_all().await?;
         Ok(())
     }
+    
+    /// Get the memory configuration
+    pub fn get_config(&self) -> &MemoryConfig {
+        &self.config.memory_config
+    }
 }
 
 /// Builder for persistent memory module

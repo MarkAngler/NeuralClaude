@@ -13,6 +13,7 @@ pub mod optimizers;
 pub mod integration;
 pub mod storage;
 pub mod self_optimizing;
+pub mod adaptive;
 
 pub use nn::{NeuralNetwork, Layer, Activation};
 pub use memory::{MemoryBank, MemoryModule, MemoryConfig, PersistentMemoryModule, PersistentMemoryBuilder};

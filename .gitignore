@@ -169,3 +169,9 @@ neuralclaude-server.exe
 # neural-llm-memory/README.md
 # neural-llm-memory/MCP_SETUP.md
 # neural-llm-memory/.npmignore
+test_local.sh
+test_mcp_server.sh
+neural-llm-memory/ADAPTIVE_FLOW.md
+neural-llm-memory/ADAPTIVE_MCP_PLAN.md
+neural-llm-memory/FEEDBACK_INTEGRATION.md
+neural-llm-memory/PERSISTENCE_PLAN.md
