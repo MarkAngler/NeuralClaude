@@ -16,6 +16,7 @@ use rmcp::{
     ServerHandler, ServiceExt,
     model::*,
     service::{RequestContext, RoleServer},
+    transport::stdio,
 };
 
 // Helper to convert schema
@@ -111,13 +112,11 @@ struct ToolError(String);
 struct NeuralMemoryServer {
     memory_module: Arc<Mutex<PersistentMemoryModule>>,
     adaptive_module: Option<Arc<Mutex<AdaptiveMemoryModule>>>,
-    runtime: Arc<tokio::runtime::Runtime>,
     adaptive_enabled: bool,
 }
 
 impl NeuralMemoryServer {
     async fn new() -> Result<Self> {
-        let runtime = Arc::new(tokio::runtime::Runtime::new()?);
         let adaptive_enabled = std::env::var("NEURAL_MCP_ADAPTIVE")
             .unwrap_or_else(|_| "true".to_string())
             .parse::<bool>()
@@ -147,7 +146,6 @@ impl NeuralMemoryServer {
         Ok(Self {
             memory_module: Arc::new(Mutex::new(memory_module)),
             adaptive_module,
-            runtime,
             adaptive_enabled,
         })
     }
@@ -359,7 +357,22 @@ impl NeuralMemoryServer {
 // Implement ServerHandler using the rmcp SDK
 impl ServerHandler for NeuralMemoryServer {
     fn get_info(&self) -> ServerInfo {
-        Default::default()
+        ServerInfo {
+            protocol_version: ProtocolVersion::default(),
+            capabilities: ServerCapabilities {
+                tools: Some(Default::default()),
+                resources: Some(Default::default()),
+                prompts: None,
+                completions: None,
+                experimental: None,
+                logging: None,
+            },
+            server_info: Implementation {
+                name: "neural-memory".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+            },
+            instructions: Some("Neural memory MCP server for Claude with adaptive learning".into()),
+        }
     }
     
     async fn list_tools(
@@ -578,21 +591,30 @@ impl ServerHandler for NeuralMemoryServer {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize logging to stderr to avoid interfering with stdio transport
+    use tracing_subscriber::{self, EnvFilter};
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
+        .with_writer(std::io::stderr)
+        .with_ansi(false)
+        .init();
+    
+    tracing::info!("Starting neural-memory MCP server");
+    
     // Initialize server
     let server = NeuralMemoryServer::new().await?;
     
     // Only print to stderr AFTER server is ready
     eprintln!("🚀 neural-memory MCP server ready (using rmcp SDK)");
     
-    // Use stdio transport
-    use tokio::io::{stdin, stdout};
-    let transport = (stdin(), stdout());
-    
     // Clone server for shutdown handling
     let server_for_shutdown = server.clone();
     
-    // Start the server using rmcp's serve method
-    let server_peer = server.serve(transport).await?;
+    // Start the server using rmcp's serve method with stdio transport
+    let server_peer = server.serve(stdio()).await
+        .inspect_err(|e| {
+            tracing::error!("serving error: {:?}", e);
+        })?;
     
     eprintln!("Server connected and running. Waiting for shutdown...");
     
