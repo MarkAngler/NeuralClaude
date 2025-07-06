@@ -225,6 +225,80 @@ The neural memory system consists of:
 - **MCP Server**: JSON-RPC interface for Claude integration
 - **Embeddings**: Vector representations of stored content
 
+## 📊 Progress Tracking
+
+NeuralClaude includes built-in tools to monitor and track improvement over time. The adaptive learning system continuously evolves, and you can track its progress using the provided monitoring tools.
+
+### Key Metrics
+
+- **Evolution Generation**: Current generation of neural network evolution (increments every 100 operations)
+- **Best Fitness Score**: Neural network optimization score (0-1, higher is better)
+- **Average Response Time**: Speed of memory operations in milliseconds (target < 50ms)
+- **Cache Hit Rate**: Percentage of operations served from cache (target > 60%)
+- **Similarity Scores**: Quality of semantic search results (higher means better matching)
+
+### Tracking Tools
+
+#### 1. Progress Dashboard (`scripts/track_progress.py`)
+
+View current metrics and improvements from baseline:
+
+```bash
+python3 scripts/track_progress.py
+```
+
+This displays:
+- Current performance metrics
+- Improvement percentages from baseline
+- Recommendations for optimization
+- Evolution progress countdown
+
+#### 2. Continuous Monitor (`scripts/monitor_evolution.sh`)
+
+Run a daemon that tracks metrics over time:
+
+```bash
+# Default: Check every 5 minutes
+./scripts/monitor_evolution.sh
+
+# Custom interval: Check every 60 seconds
+./scripts/monitor_evolution.sh 60
+```
+
+Logs are saved to `~/.neuralclaude/evolution_log.txt`
+
+### Using MCP Tools for Real-time Tracking
+
+In Claude, you can check current progress:
+
+```markdown
+Please check the adaptive learning status with verbose details
+```
+
+This will show:
+- Operation count and next evolution trigger
+- Recent operation metrics with feedback scores
+- Current generation and fitness score
+- Performance statistics
+
+### Understanding Improvement
+
+The system improves through:
+
+1. **Feedback Loop**: Every operation can receive feedback (0.0-1.0 score)
+2. **Evolution**: Neural networks evolve every 100 operations
+3. **Pattern Learning**: Successful patterns are stored and refined
+4. **Cache Optimization**: Frequently accessed memories are cached
+
+### Feedback Guidelines
+
+When using the neural memory system, provide quality feedback:
+- **1.0**: Perfect match, exactly what was needed
+- **0.7-0.9**: Good match, useful with minor adaptation
+- **0.4-0.6**: Partial match, required significant work
+- **0.1-0.3**: Poor match, barely useful
+- **0.0**: Complete miss, not useful at all
+
 ## 🧠 Adaptive Learning System
 
 NeuralClaude includes a sophisticated adaptive learning system that continuously improves performance through pattern recognition and neural adaptation.
