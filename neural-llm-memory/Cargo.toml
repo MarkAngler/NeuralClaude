@@ -64,8 +64,8 @@ lto = true
 codegen-units = 1
 
 [[bin]]
-name = "mcp_server_simple"
-path = "src/bin/mcp_server_simple.rs"
+name = "mcp_server"
+path = "src/bin/mcp_server.rs"
 
 [[example]]
 name = "self_optimizing_demo"
