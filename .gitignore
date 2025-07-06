@@ -184,3 +184,4 @@ neural-llm-memory/test_persistence_simple.py
 neural-llm-memory/test_persistence.py
 neural-llm-memory/test_run.sh
 neural-llm-memory/adaptive_memory_data/adaptive_state.json
+release.sh

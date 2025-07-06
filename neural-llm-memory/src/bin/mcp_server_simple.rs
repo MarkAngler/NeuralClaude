@@ -204,7 +204,9 @@ impl MemoryServer {
         
         JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
-            result: Some(json!(resources)),
+            result: Some(json!({
+                "resources": resources
+            })),
             error: None,
             id: request.id.unwrap(),
         }
@@ -496,7 +498,9 @@ impl MemoryServer {
         
         JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
-            result: Some(json!(tools_list)),
+            result: Some(json!({
+                "tools": tools_list
+            })),
             error: None,
             id: request.id.unwrap(),
         }
