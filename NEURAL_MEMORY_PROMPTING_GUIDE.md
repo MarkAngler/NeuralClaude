@@ -56,9 +56,7 @@ Step 2: Provide feedback on search results
 - Parameters:
   - operation_id: "<from Step 1>"
   - success: true/false
-  - score: 0.0-1.0
-  - reason: "Found exact solution" or "No relevant matches"
-  - usage_context: "Used in response" or "Ignored, searching elsewhere"
+  - score: 0.0-1.0  # 1.0 = perfect match, 0.0 = useless
 ```
 
 ### 2. **During Work**:
@@ -74,8 +72,7 @@ Then provide feedback:
 - Parameters:
   - operation_id: "<from store operation>"
   - success: true
-  - score: 1.0
-  - reason: "Stored critical decision for future reference"
+  - score: 1.0  # Always 1.0 for successful stores
 ```
 
 ### 3. **End of Task**:
@@ -124,9 +121,7 @@ Correct MCP tool usage (single message with multiple tools):
 3. mcp__neural-memory__provide_feedback
    - operation_id: "<from search>"
    - success: true
-   - score: 0.8
-   - reason: "Found related deployment patterns"
-   - usage_context: "Applied Docker config from results"
+   - score: 0.8  # Good but not perfect match
 
 4. Read
    - file_path: "/deployment/docker-compose.yml"
@@ -141,23 +136,19 @@ Correct MCP tool usage (single message with multiple tools):
 ### ✅ HIGH-QUALITY Feedback:
 ```
 SUCCESS (score: 0.95):
-- reason: "Retrieved exact JWT implementation from previous session. Code pattern matched current needs perfectly."
-- usage_context: "Copied auth middleware directly into new endpoint with minor variable name changes"
+- Perfect match, used directly in response
 
 PARTIAL (score: 0.6):
-- reason: "Found related WebSocket patterns but for different framework. Had to adapt significantly."
-- usage_context: "Used connection handling logic but rewrote event system for current architecture"
+- Related but required significant adaptation
 
 FAILURE (score: 0.1):
-- reason: "Search returned Python examples but working in Rust. Syntax completely different."
-- usage_context: "Ignored results, searched Rust documentation instead"
+- Not useful, had to search elsewhere
 ```
 
 ### ❌ POOR Feedback (avoid these):
-- "It worked" (too vague)
-- "Found something" (no specifics)
 - Missing operation_id
-- No usage_context provided
+- Score of 0.5 (be decisive: high or low)
+- Not providing feedback at all
 
 ## 📊 Adaptive Learning Workflow
 
