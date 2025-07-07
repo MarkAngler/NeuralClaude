@@ -32,6 +32,17 @@ pub struct ArchitectureGenome {
     
     /// Number of parameters
     pub num_parameters: usize,
+    
+    /// Mutation history for this genome
+    pub mutation_history: Vec<MutationInfo>,
+}
+
+/// Information about a mutation applied to a genome
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MutationInfo {
+    pub mutation_type: String,
+    pub description: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 /// Gene representing a single layer
@@ -196,6 +207,7 @@ impl ArchitectureGenome {
             },
             created_at: chrono::Utc::now(),
             num_parameters: 0,
+            mutation_history: Vec::new(),
         }
     }
     
@@ -259,47 +271,86 @@ impl ArchitectureGenome {
     /// Mutate the genome
     pub fn mutate(&mut self, mutation_rate: f32) {
         let mut rng = thread_rng();
+        let mut mutations_applied = Vec::new();
         
         // Mutate layers
-        for layer in &mut self.layers {
+        for (i, layer) in self.layers.iter_mut().enumerate() {
             if rng.gen_bool(mutation_rate as f64) {
                 // Mutate layer size
+                let old_size = layer.size;
                 layer.size = (layer.size as f32 * rng.gen_range(0.8..1.2)) as usize;
                 layer.size = layer.size.clamp(32, 4096);
+                if old_size != layer.size {
+                    mutations_applied.push(MutationInfo {
+                        mutation_type: "layer_size".to_string(),
+                        description: format!("Layer {} size changed from {} to {}", i, old_size, layer.size),
+                        timestamp: chrono::Utc::now(),
+                    });
+                }
             }
             
             if rng.gen_bool(mutation_rate as f64 * 0.5) {
                 // Mutate activation
+                let old_activation = layer.activation.clone();
                 layer.activation = match rng.gen_range(0..4) {
                     0 => ActivationFunction::ReLU,
                     1 => ActivationFunction::GELU,
                     2 => ActivationFunction::SiLU,
                     _ => ActivationFunction::LeakyReLU(0.01),
                 };
+                if old_activation != layer.activation {
+                    mutations_applied.push(MutationInfo {
+                        mutation_type: "activation_function".to_string(),
+                        description: format!("Layer {} activation changed from {:?} to {:?}", i, old_activation, layer.activation),
+                        timestamp: chrono::Utc::now(),
+                    });
+                }
             }
             
             if rng.gen_bool(mutation_rate as f64 * 0.3) {
                 // Toggle dropout
+                let old_dropout = layer.dropout_rate;
                 layer.dropout_rate = if layer.dropout_rate.is_some() {
                     None
                 } else {
                     Some(rng.gen_range(0.1..0.5))
                 };
+                mutations_applied.push(MutationInfo {
+                    mutation_type: "dropout".to_string(),
+                    description: format!("Layer {} dropout changed from {:?} to {:?}", i, old_dropout, layer.dropout_rate),
+                    timestamp: chrono::Utc::now(),
+                });
             }
         }
         
         // Mutate connections
-        for conn in &mut self.connections {
+        for (i, conn) in self.connections.iter_mut().enumerate() {
             if rng.gen_bool(mutation_rate as f64 * 0.2) {
                 conn.enabled = !conn.enabled;
+                mutations_applied.push(MutationInfo {
+                    mutation_type: "connection_toggle".to_string(),
+                    description: format!("Connection {} ({}->{}) enabled: {}", i, conn.from_layer, conn.to_layer, conn.enabled),
+                    timestamp: chrono::Utc::now(),
+                });
             }
         }
         
         // Mutate hyperparameters
         if rng.gen_bool(mutation_rate as f64) {
+            let old_lr = self.hyperparameters.learning_rate;
             self.hyperparameters.learning_rate *= rng.gen_range(0.5..2.0);
             self.hyperparameters.learning_rate = self.hyperparameters.learning_rate.clamp(1e-6, 1.0);
+            if (old_lr - self.hyperparameters.learning_rate).abs() > 1e-8 {
+                mutations_applied.push(MutationInfo {
+                    mutation_type: "learning_rate".to_string(),
+                    description: format!("Learning rate changed from {:.6} to {:.6}", old_lr, self.hyperparameters.learning_rate),
+                    timestamp: chrono::Utc::now(),
+                });
+            }
         }
+        
+        // Add mutations to history
+        self.mutation_history.extend(mutations_applied);
     }
     
     /// Crossover two genomes to create offspring
@@ -329,6 +380,15 @@ impl ArchitectureGenome {
         
         offspring.fitness_scores.clear();
         offspring.created_at = chrono::Utc::now();
+        
+        // Add crossover info to mutation history
+        offspring.mutation_history.push(MutationInfo {
+            mutation_type: "crossover".to_string(),
+            description: format!("Created from crossover of {} and {}", 
+                self.id.to_string()[..8].to_string(), 
+                other.id.to_string()[..8].to_string()),
+            timestamp: chrono::Utc::now(),
+        });
         
         offspring
     }

@@ -3,6 +3,7 @@
 use ndarray::{Array2, Array3, Axis};
 use crate::nn::{WeightInit, Gradient, ActivationFunction, Activation};
 use crate::nn::tensor::{Tensor, TensorOps};
+use crate::nn::layers::weight_extraction::WeightExtraction;
 use std::sync::Arc;
 use parking_lot::RwLock;
 
@@ -65,6 +66,16 @@ impl Layer for LayerType {
             LayerType::Embedding(_) => vec![],
         }
     }
+    
+    fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
+        match self {
+            LayerType::Linear(layer) => Layer::to_layer_state(layer),
+            LayerType::Conv1D(layer) => Layer::to_layer_state(layer),
+            LayerType::Dropout(layer) => Layer::to_layer_state(layer),
+            LayerType::LayerNorm(layer) => Layer::to_layer_state(layer),
+            LayerType::Embedding(layer) => Some(WeightExtraction::to_layer_state(layer)),
+        }
+    }
 }
 
 pub trait Layer: Send + Sync {
@@ -96,6 +107,11 @@ pub trait Layer: Send + Sync {
                 *val += rng.gen_range(-noise_scale..noise_scale);
             }
         }
+    }
+    
+    // Method for persistence support
+    fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
+        None // Default implementation, override in specific layers
     }
 }
 
@@ -206,6 +222,10 @@ impl Layer for LinearLayer {
     fn output_size(&self) -> Option<usize> {
         Some(self.weights.shape()[1])
     }
+    
+    fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
+        Some(WeightExtraction::to_layer_state(self))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -284,6 +304,10 @@ impl Layer for Conv1DLayer {
     fn get_params_mut(&mut self) -> Vec<&mut Array2<f32>> {
         vec![&mut self.bias]
     }
+    
+    fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
+        Some(WeightExtraction::to_layer_state(self))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -335,6 +359,10 @@ impl Layer for DropoutLayer {
     
     fn increase_dropout(&mut self, increase: f32) {
         self.dropout_rate = (self.dropout_rate + increase).min(0.9); // Cap at 90%
+    }
+    
+    fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
+        Some(WeightExtraction::to_layer_state(self))
     }
 }
 
@@ -394,6 +422,10 @@ impl Layer for LayerNormLayer {
     
     fn get_params_mut(&mut self) -> Vec<&mut Array2<f32>> {
         vec![&mut self.gamma, &mut self.beta]
+    }
+    
+    fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
+        Some(WeightExtraction::to_layer_state(self))
     }
 }
 

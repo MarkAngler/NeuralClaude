@@ -1,11 +1,12 @@
 //! Core neural network components
 
 pub mod layer;
+pub mod layers;
 pub mod activation;
 pub mod network;
 pub mod tensor;
 
-pub use layer::{Layer, LayerType, LinearLayer, Conv1DLayer, DropoutLayer, LayerNormLayer};
+pub use layer::{Layer, LayerType, LinearLayer, Conv1DLayer, DropoutLayer, LayerNormLayer, EmbeddingLayer};
 pub use activation::{Activation, ActivationFunction};
 pub use network::{NeuralNetwork, NetworkBuilder};
 pub use tensor::{Tensor, TensorOps};

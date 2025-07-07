@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use schemars::JsonSchema;
 
-mod mcp_server_config;
+// mod mcp_server_config;
 
 // Import rmcp types
 use rmcp::{
@@ -120,14 +120,38 @@ impl NeuralMemoryServer {
             .parse::<bool>()
             .unwrap_or(true);
         
+        let auto_recover = std::env::var("NEURAL_MCP_AUTO_RECOVER")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true);
+        
         let base_config = MemoryConfig::default();
         
         // Create adaptive module if enabled
         let adaptive_module = if adaptive_enabled {
-            let adaptive_config = mcp_server_config::get_adaptive_config();
-            let module = AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create adaptive module: {}", e))?;
+            // Use new_with_persistence for startup recovery
+            let module = if auto_recover {
+                eprintln!("🔄 Attempting to recover adaptive memory state...");
+                match AdaptiveMemoryModule::new_with_persistence(base_config.clone(), true).await {
+                    Ok(module) => {
+                        eprintln!("✅ Successfully recovered adaptive memory state");
+                        module
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Failed to recover state: {}. Starting fresh.", e);
+                        let adaptive_config = AdaptiveConfig::default();
+                        AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
+                            .await
+                            .map_err(|e| anyhow::anyhow!("Failed to create adaptive module: {}", e))?
+                    }
+                }
+            } else {
+                eprintln!("📝 Starting with fresh adaptive memory (recovery disabled)");
+                let adaptive_config = AdaptiveConfig::default();
+                AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to create adaptive module: {}", e))?
+            };
             Some(Arc::new(Mutex::new(module)))
         } else {
             None
@@ -613,8 +637,42 @@ async fn main() -> Result<()> {
     // Initialize server
     let server = NeuralMemoryServer::new().await?;
     
+    // Start auto-save background task if adaptive is enabled
+    if server.adaptive_enabled {
+        if let Some(adaptive_module) = &server.adaptive_module {
+            let auto_save_interval = std::env::var("NEURAL_MCP_AUTO_SAVE_INTERVAL")
+                .unwrap_or_else(|_| "300".to_string())
+                .parse::<u64>()
+                .unwrap_or(300); // Default to 5 minutes
+            
+            eprintln!("🔄 Starting auto-save task (interval: {} seconds)", auto_save_interval);
+            
+            let module_clone = Arc::clone(adaptive_module);
+            tokio::spawn(async move {
+                use tokio::time::{interval, Duration};
+                
+                let mut interval = interval(Duration::from_secs(auto_save_interval));
+                
+                loop {
+                    interval.tick().await;
+                    
+                    let module = module_clone.lock().await;
+                    if let Err(e) = module.auto_save().await {
+                        eprintln!("❌ Auto-save failed: {}", e);
+                    } else {
+                        eprintln!("💾 Auto-saved adaptive module state");
+                    }
+                }
+            });
+        }
+    }
+    
     // Only print to stderr AFTER server is ready
     eprintln!("🚀 neural-memory MCP server ready (using rmcp SDK)");
+    eprintln!("📊 Configuration:");
+    eprintln!("  - Adaptive learning: {}", if server.adaptive_enabled { "enabled" } else { "disabled" });
+    eprintln!("  - Auto-recovery: {}", std::env::var("NEURAL_MCP_AUTO_RECOVER").unwrap_or_else(|_| "true".to_string()));
+    eprintln!("  - Auto-save interval: {} seconds", std::env::var("NEURAL_MCP_AUTO_SAVE_INTERVAL").unwrap_or_else(|_| "300".to_string()));
     
     // Clone server for shutdown handling
     let server_for_shutdown = server.clone();

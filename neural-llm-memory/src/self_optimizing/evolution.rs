@@ -6,6 +6,7 @@ use rand::prelude::*;
 use crate::nn::NeuralNetwork;
 use ndarray::Array2;
 use super::{ArchitectureGenome, SelfOptimizingConfig, FitnessEvaluator, OptimizationInsights, GenerationStats};
+use uuid::Uuid;
 
 /// Controls the evolutionary process for architecture optimization
 pub struct EvolutionController {
@@ -29,6 +30,9 @@ pub struct EvolutionController {
     
     /// Current generation
     generation: usize,
+    
+    /// Track fitness before mutation for comparison
+    pre_mutation_fitness: HashMap<uuid::Uuid, f32>,
     
     /// Input size for networks
     pub input_size: usize,
@@ -61,25 +65,35 @@ impl Default for EvolutionConfig {
 
 /// History of evolution process
 #[derive(Debug, Clone)]
-struct EvolutionHistory {
-    generations: Vec<GenerationRecord>,
-    best_fitness_history: Vec<f32>,
-    diversity_history: Vec<f32>,
+pub struct EvolutionHistory {
+    pub generations: Vec<GenerationRecord>,
+    pub best_fitness_history: Vec<f32>,
+    pub diversity_history: Vec<f32>,
 }
 
 #[derive(Debug, Clone)]
-struct GenerationRecord {
-    generation: usize,
-    best_fitness: f32,
-    average_fitness: f32,
-    worst_fitness: f32,
-    diversity_score: f32,
-    elite_count: usize,
-    mutation_count: usize,
-    crossover_count: usize,
+pub struct GenerationRecord {
+    pub generation: usize,
+    pub best_fitness: f32,
+    pub average_fitness: f32,
+    pub worst_fitness: f32,
+    pub diversity_score: f32,
+    pub elite_count: usize,
+    pub mutation_count: usize,
+    pub crossover_count: usize,
 }
 
 impl EvolutionController {
+    /// Get the internal evolution history
+    pub fn get_evolution_history(&self) -> &EvolutionHistory {
+        &self.history
+    }
+    
+    /// Get hall of fame genomes
+    pub fn get_hall_of_fame(&self) -> &Vec<ArchitectureGenome> {
+        &self.hall_of_fame
+    }
+    
     /// Create a new evolution controller
     pub fn new(
         config: SelfOptimizingConfig,
@@ -105,6 +119,7 @@ impl EvolutionController {
                 diversity_history: Vec::new(),
             },
             generation: 0,
+            pre_mutation_fitness: HashMap::new(),
             input_size: 768, // Default input size
             output_size: 128, // Default output size
         }
@@ -149,6 +164,11 @@ impl EvolutionController {
                 let parent2 = self.tournament_select();
                 let mut offspring = parent1.crossover(&parent2);
                 
+                // Store parent fitness for tracking
+                let parent_fitness = parent1.fitness_scores.values().sum::<f32>()
+                    .max(parent2.fitness_scores.values().sum::<f32>());
+                self.pre_mutation_fitness.insert(offspring.id, parent_fitness);
+                
                 // Apply mutation to offspring
                 if thread_rng().gen_bool(self.config.mutation_rate as f64) {
                     offspring.mutate(self.config.mutation_rate);
@@ -158,8 +178,21 @@ impl EvolutionController {
             } else {
                 // Direct mutation
                 let mut individual = self.tournament_select();
-                individual.mutate(self.config.mutation_rate);
-                new_population.push(individual);
+                let pre_fitness = individual.fitness_scores.values().sum::<f32>();
+                
+                // Create a new individual (clone with new ID)
+                let mut mutated = individual.clone();
+                mutated.id = Uuid::new_v4();
+                mutated.created_at = chrono::Utc::now();
+                
+                // Store pre-mutation fitness
+                self.pre_mutation_fitness.insert(mutated.id, pre_fitness);
+                
+                // Apply mutation
+                mutated.mutate(self.config.mutation_rate);
+                mutated.fitness_scores.clear(); // Clear scores to force re-evaluation
+                
+                new_population.push(mutated);
             }
         }
         
@@ -193,7 +226,28 @@ impl EvolutionController {
             
             genome.fitness_scores = fitness_score.scores;
             genome.hardware_metrics = fitness_score.hardware_metrics;
+            
+            // Check if this was a successful mutation
+            if let Some(&pre_fitness) = self.pre_mutation_fitness.get(&genome.id) {
+                let post_fitness = genome.fitness_scores.values().sum::<f32>();
+                if post_fitness > pre_fitness && !genome.mutation_history.is_empty() {
+                    // This mutation was successful!
+                    let improvement = post_fitness - pre_fitness;
+                    
+                    // Update the last mutation in history with actual improvement
+                    if let Some(last_mutation) = genome.mutation_history.last_mut() {
+                        // Add improvement info to description
+                        last_mutation.description = format!("{} (improved fitness by {:.4})", 
+                            last_mutation.description, improvement);
+                    }
+                }
+            }
         }
+        
+        // Clean up pre-mutation fitness tracking for old genomes
+        self.pre_mutation_fitness.retain(|id, _| {
+            self.population.iter().any(|g| &g.id == id)
+        });
         
         Ok(())
     }
@@ -416,6 +470,46 @@ impl EvolutionController {
         
         (last - first) / window as f32
     }
+    
+    /// Get the current population
+    pub fn get_population(&self) -> &Vec<ArchitectureGenome> {
+        &self.population
+    }
+    
+    /// Set the population (for restoring from saved state)
+    pub fn set_population(&mut self, population: Vec<ArchitectureGenome>) {
+        self.population = population;
+    }
+    
+    /// Get a complete snapshot of the evolution state
+    pub fn get_state_snapshot(&self) -> EvolutionStateSnapshot {
+        EvolutionStateSnapshot {
+            population: self.population.clone(),
+            hall_of_fame: self.hall_of_fame.clone(),
+            generation: self.generation,
+            history: self.history.clone(),
+            pre_mutation_fitness: self.pre_mutation_fitness.clone(),
+        }
+    }
+    
+    /// Restore from a state snapshot
+    pub fn restore_from_snapshot(&mut self, snapshot: EvolutionStateSnapshot) {
+        self.population = snapshot.population;
+        self.hall_of_fame = snapshot.hall_of_fame;
+        self.generation = snapshot.generation;
+        self.history = snapshot.history;
+        self.pre_mutation_fitness = snapshot.pre_mutation_fitness;
+    }
+}
+
+/// Complete snapshot of evolution state
+#[derive(Debug, Clone)]
+pub struct EvolutionStateSnapshot {
+    pub population: Vec<ArchitectureGenome>,
+    pub hall_of_fame: Vec<ArchitectureGenome>,
+    pub generation: usize,
+    pub history: EvolutionHistory,
+    pub pre_mutation_fitness: HashMap<Uuid, f32>,
 }
 
 #[cfg(test)]

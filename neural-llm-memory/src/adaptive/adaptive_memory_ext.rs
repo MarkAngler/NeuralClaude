@@ -119,8 +119,34 @@ impl AdaptiveMemoryModule {
         let state: AdaptiveModuleState = serde_json::from_str(&state_json)
             .map_err(|e| format!("Failed to deserialize adaptive state: {}", e))?;
         
-        // Create the module using the constructor with the loaded config
-        let module = Self::with_config(base_config, state.config).await
+        // Check if we have an evolved network configuration to load
+        let evolved_config_path = base_path.join("network_checkpoints/evolved_config.json");
+        let memory_config = if evolved_config_path.exists() {
+            println!("🧬 Found evolved network configuration, loading...");
+            match tokio::fs::read_to_string(&evolved_config_path).await {
+                Ok(config_json) => {
+                    match serde_json::from_str::<MemoryConfig>(&config_json) {
+                        Ok(evolved_config) => {
+                            println!("✅ Successfully loaded evolved network configuration");
+                            evolved_config
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️  Failed to parse evolved config: {}. Using base config.", e);
+                            base_config
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to read evolved config: {}. Using base config.", e);
+                    base_config
+                }
+            }
+        } else {
+            base_config
+        };
+        
+        // Create the module using the constructor with the loaded config (and potentially evolved memory config)
+        let module = Self::with_config(memory_config, state.config).await
             .map_err(|e| format!("Failed to create module with loaded config: {}", e))?;
         
         // Restore the operation count
@@ -279,8 +305,8 @@ mod tests {
         
         // Verify operation count was preserved
         assert_eq!(
-            *loaded_module.operation_count.read().await,
-            *module.operation_count.read().await
+            *loaded_module.operation_count().read().await,
+            *module.operation_count().read().await
         );
     }
 }

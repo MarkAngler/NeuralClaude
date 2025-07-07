@@ -17,8 +17,8 @@ pub mod network_ext;
 pub mod optimizer_ext;
 pub mod persistence_ext;
 
-pub use genome::{ArchitectureGenome, LayerGene, ConnectionGene};
-pub use evolution::{EvolutionController, EvolutionConfig};
+pub use genome::{ArchitectureGenome, LayerGene, ConnectionGene, MutationInfo};
+pub use evolution::{EvolutionController, EvolutionConfig, EvolutionHistory, GenerationRecord};
 pub use evaluator::{FitnessEvaluator, FitnessScore};
 pub use optimizer::{OnlineOptimizer, AdaptationStrategy};
 
@@ -104,7 +104,7 @@ pub struct SelfOptimizingNetwork {
     config: SelfOptimizingConfig,
     
     /// Training generation counter
-    generation: usize,
+    pub generation: usize,
     
     /// Input size for the network
     input_size: usize,
@@ -185,7 +185,7 @@ impl SelfOptimizingNetwork {
     }
     
     /// Evolve architecture for one generation
-    fn evolve_architecture(
+    pub fn evolve_architecture(
         &mut self,
         validation_data: &[(Array2<f32>, Array2<f32>)],
     ) -> Result<(), Box<dyn std::error::Error>> {
