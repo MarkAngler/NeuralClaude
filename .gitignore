@@ -190,3 +190,4 @@ fixes_implemented.md
 agentic_test1_results.md
 scripts/mcp_inspector.sh
 docs/WEIGHT_SAVING_IMPLEMENTATION_PLAN.md
+adaptive_memory_data/adaptive_state.json

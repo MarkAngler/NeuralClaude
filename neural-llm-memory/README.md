@@ -58,10 +58,11 @@ See [MCP_SETUP.md](./MCP_SETUP.md) for detailed setup instructions.
 ## Features
 
 - High-performance Rust-based neural memory system
-- Persistent memory storage
+- Persistent memory storage with automatic recovery
 - Semantic search capabilities
 - Attention-based retrieval
 - Self-optimizing neural architecture
+- Neural network weights persist across restarts
 
 ## MCP Tools Available
 
@@ -87,6 +88,28 @@ The server also exposes read-only resources:
 - `memory://adaptive/status` - Adaptive learning status
 - `memory://adaptive/insights` - Learning insights and recommendations
 - `memory://keys` - List of stored memory keys
+
+## Data Storage
+
+NeuralClaude persists all data in the `./adaptive_memory_data/` directory:
+
+```
+./adaptive_memory_data/
+├── adaptive_state.json          # Adaptive module state & metrics
+├── memories.json                # Memory content storage
+├── network_checkpoints/         # Neural network weights
+│   ├── evolved_config.json      # Evolved network architecture
+│   └── checkpoint_*.bin         # Weight checkpoints
+└── recovery.lock               # Concurrent access prevention
+```
+
+### Environment Variables
+
+- `NEURAL_MCP_ADAPTIVE` - Enable/disable adaptive learning (default: `true`)
+- `NEURAL_MCP_AUTO_RECOVER` - Auto-load saved state on startup (default: `true`)
+- `NEURAL_MCP_AUTO_SAVE_INTERVAL` - Auto-save interval in seconds (default: `300`)
+- `NEURAL_MCP_CHECKPOINT_INTERVAL` - Checkpoint save interval (default: `300`)
+- `NEURAL_MCP_MAX_CHECKPOINTS` - Maximum checkpoints to keep (default: `10`)
 
 ## Platform Support
 
