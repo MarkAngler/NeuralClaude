@@ -5,6 +5,12 @@ pub mod adaptive_config;
 pub mod feedback;
 pub mod adaptive_memory_ext;
 
+#[cfg(test)]
+mod config_test;
+
+#[cfg(test)]
+mod shutdown_test;
+
 pub use usage_collector::{UsageCollector, UsageMetrics, OperationType, TrainingCorpus};
 pub use adaptive_memory::AdaptiveMemoryModule;
 pub use background_evolver::{BackgroundEvolver, EvolutionStatus, EvolvedArchitecture};

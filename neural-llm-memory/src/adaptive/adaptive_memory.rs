@@ -158,6 +158,73 @@ impl AdaptiveMemoryModule {
         Ok(result.map(|results| (results, operation_id))?)
     }
     
+    pub async fn update(&self, key: &str, content: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let operation_id = self.generate_operation_id();
+        let start = Instant::now();
+        let initial_memory = self.get_memory_usage().await;
+        
+        // Check if the key exists first
+        let exists = {
+            let memory = self.active_memory.read().await;
+            memory.retrieve(key).await?.is_some()
+        };
+        
+        if !exists {
+            return Err(format!("Key '{}' not found", key).into());
+        }
+        
+        // Execute update operation (store with existing key)
+        let result = {
+            let memory = self.active_memory.read().await;
+            memory.store(key, content).await
+        };
+        
+        // Record metrics
+        let response_time = start.elapsed().as_millis() as f32;
+        let final_memory = self.get_memory_usage().await;
+        
+        self.record_operation(
+            operation_id.clone(),
+            OperationType::Update,
+            content.len(),
+            response_time,
+            final_memory as i64 - initial_memory as i64,
+            vec![],
+            false,
+        ).await;
+        
+        Ok(result.map(|_| operation_id)?)
+    }
+    
+    pub async fn delete(&self, key: &str) -> Result<(bool, String), Box<dyn std::error::Error>> {
+        let operation_id = self.generate_operation_id();
+        let start = Instant::now();
+        let initial_memory = self.get_memory_usage().await;
+        
+        // Execute delete operation
+        let result = {
+            let memory = self.active_memory.read().await;
+            memory.delete(key).await
+        };
+        
+        // Record metrics
+        let response_time = start.elapsed().as_millis() as f32;
+        let final_memory = self.get_memory_usage().await;
+        let deleted = result.as_ref().map(|&r| r).unwrap_or(false);
+        
+        self.record_operation(
+            operation_id.clone(),
+            OperationType::Delete,
+            key.len(),
+            response_time,
+            final_memory as i64 - initial_memory as i64,
+            vec![],
+            deleted, // Use deleted flag as cache_hit for metrics
+        ).await;
+        
+        Ok(result.map(|deleted| (deleted, operation_id))?)
+    }
+    
     pub async fn get_stats(&self) -> Result<Value, Box<dyn std::error::Error>> {
         let memory = self.active_memory.read().await;
         let usage_stats = self.usage_collector.get_stats().await;

@@ -256,6 +256,77 @@ impl AdaptiveMemoryModule {
         
         Ok(())
     }
+    
+    /// Save complete network state on shutdown, including weights
+    pub async fn save_shutdown_checkpoint(&self) -> Result<(), Box<dyn StdError>> {
+        let checkpoint_path = self.get_network_checkpoint_path();
+        tokio::fs::create_dir_all(&checkpoint_path).await
+            .map_err(|e| format!("Failed to create checkpoint directory: {}", e))?;
+        
+        // Create timestamped checkpoint filename
+        let timestamp = Utc::now();
+        let checkpoint_filename = format!("checkpoint_shutdown_{}.bin", timestamp.format("%Y%m%d_%H%M%S"));
+        let checkpoint_file_path = checkpoint_path.join(&checkpoint_filename);
+        
+        // Save the complete adaptive state including neural network weights
+        self.save_state(&checkpoint_path).await
+            .map_err(|e| format!("Failed to save adaptive state: {}", e))?;
+        
+        // Get evolution status to save additional metadata
+        let evolver = self.evolver().lock().await;
+        let evolution_status = evolver.get_status().await;
+        let last_evolution_time = evolver.get_last_evolution_time().await;
+        
+        // Create metadata for the checkpoint
+        let metadata = serde_json::json!({
+            "timestamp": timestamp.to_rfc3339(),
+            "type": "shutdown_checkpoint",
+            "evolution_status": {
+                "current_generation": evolution_status.current_generation,
+                "best_fitness": evolution_status.best_fitness,
+                "is_running": evolution_status.is_running,
+            },
+            "last_evolution": last_evolution_time.map(|t| t.to_rfc3339()),
+        });
+        
+        // Save metadata
+        let metadata_path = checkpoint_path.join(format!("checkpoint_shutdown_{}_metadata.json", timestamp.format("%Y%m%d_%H%M%S")));
+        let metadata_json = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
+        tokio::fs::write(&metadata_path, metadata_json).await
+            .map_err(|e| format!("Failed to write metadata: {}", e))?;
+        
+        // Update the latest.bin symlink to point to the most recent checkpoint
+        let latest_link = checkpoint_path.join("latest.bin");
+        
+        // Remove existing symlink if it exists
+        if latest_link.exists() {
+            tokio::fs::remove_file(&latest_link).await.ok();
+        }
+        
+        // Create new symlink pointing to the adaptive state file
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let state_file = checkpoint_path.join("adaptive_state.json");
+            if let Err(e) = symlink(&state_file, &latest_link) {
+                eprintln!("Warning: Failed to create latest.bin symlink: {}", e);
+            }
+        }
+        
+        // Also save evolved network configuration if available
+        let evolved_config_path = checkpoint_path.join("evolved_config.json");
+        if !evolved_config_path.exists() {
+            self.save_evolved_network().await?;
+        }
+        
+        eprintln!("💾 Saved shutdown checkpoint: {}", checkpoint_filename);
+        eprintln!("📊 Evolution status: Generation {}, Fitness: {:.4}", 
+                  evolution_status.current_generation, 
+                  evolution_status.best_fitness);
+        
+        Ok(())
+    }
 }
 
 /// Background task for periodic auto-save

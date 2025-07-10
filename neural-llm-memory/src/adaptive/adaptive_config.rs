@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,10 +45,23 @@ impl Default for AdaptiveConfig {
         objectives.insert("memory_efficiency".to_string(), 0.3);
         objectives.insert("accuracy".to_string(), 0.3);
         
+        // Read evolution threshold from environment, defaulting to 50 for MCP environments
+        let evolution_after_operations = env::var("NEURAL_MCP_EVOLUTION_THRESHOLD")
+            .ok()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or_else(|| {
+                // Check if we're in an MCP environment by looking for MCP-related env vars
+                if env::var("MCP_SERVER").is_ok() || env::var("CLAUDE_MCP").is_ok() {
+                    50 // Default for MCP environments
+                } else {
+                    1000 // Default for non-MCP environments
+                }
+            });
+        
         Self {
             enabled: true,
             evolution_interval_hours: 24,
-            evolution_after_operations: 1000,
+            evolution_after_operations,
             min_training_samples: 500,
             objectives,
             target_response_ms: 10.0,
@@ -77,6 +91,20 @@ impl AdaptiveConfig {
                 .collect();
         }
         self
+    }
+    
+    pub fn with_evolution_threshold(mut self, threshold: usize) -> Self {
+        self.evolution_after_operations = threshold;
+        self
+    }
+    
+    /// Read and update configuration from environment variables
+    pub fn update_from_env(&mut self) {
+        if let Ok(threshold) = env::var("NEURAL_MCP_EVOLUTION_THRESHOLD") {
+            if let Ok(val) = threshold.parse::<usize>() {
+                self.evolution_after_operations = val;
+            }
+        }
     }
     
     pub fn validate(&self) -> Result<(), String> {

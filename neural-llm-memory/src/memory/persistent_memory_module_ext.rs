@@ -66,6 +66,13 @@ impl PersistentMemoryModule {
             .collect())
     }
     
+    /// Delete method for compatibility with adaptive module
+    pub async fn delete(&self, key: &str) -> Result<bool> {
+        // Delete from key-value store
+        let kv_store = self.get_kv_store().await;
+        kv_store.remove(key).await
+    }
+    
     /// Get config for architecture swapping (legacy method)
     pub fn get_config_legacy(&self) -> &MemoryConfig {
         self.get_config()

@@ -44,6 +44,20 @@ struct RetrieveMemoryParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+struct UpdateMemoryParams {
+    #[schemars(description = "Key of the memory to update")]
+    key: String,
+    #[schemars(description = "New content to store")]
+    content: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct DeleteMemoryParams {
+    #[schemars(description = "Key of the memory to delete")]
+    key: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 struct SearchMemoryParams {
     #[schemars(description = "Query to search for")]
     query: String,
@@ -268,6 +282,49 @@ impl NeuralMemoryServer {
         }
     }
     
+    async fn update_memory(
+        &self,
+        params: UpdateMemoryParams
+    ) -> Result<ToolResult, ToolError> {
+        if self.adaptive_enabled {
+            // Use adaptive module
+            let module = self.adaptive_module.as_ref().unwrap().lock().await;
+            match module.update(&params.key, &params.content).await {
+                Ok(operation_id) => Ok(ToolResult(json!({
+                    "status": "updated",
+                    "key": params.key,
+                    "operation_id": operation_id
+                }))),
+                Err(e) => Err(ToolError(e.to_string())),
+            }
+        } else {
+            // Placeholder for regular module
+            Err(ToolError("Update not supported in non-adaptive mode".to_string()))
+        }
+    }
+    
+    async fn delete_memory(
+        &self,
+        params: DeleteMemoryParams
+    ) -> Result<ToolResult, ToolError> {
+        if self.adaptive_enabled {
+            // Use adaptive module
+            let module = self.adaptive_module.as_ref().unwrap().lock().await;
+            match module.delete(&params.key).await {
+                Ok((deleted, operation_id)) => Ok(ToolResult(json!({
+                    "status": if deleted { "deleted" } else { "not_found" },
+                    "key": params.key,
+                    "deleted": deleted,
+                    "operation_id": operation_id
+                }))),
+                Err(e) => Err(ToolError(e.to_string())),
+            }
+        } else {
+            // Placeholder for regular module
+            Err(ToolError("Delete not supported in non-adaptive mode".to_string()))
+        }
+    }
+    
     async fn memory_stats(
         &self,
         _params: MemoryStatsParams
@@ -416,6 +473,18 @@ impl ServerHandler for NeuralMemoryServer {
                 annotations: None,
             },
             Tool {
+                name: "update_memory".into(),
+                description: Some("Update existing memory content by key".into()),
+                input_schema: to_input_schema::<UpdateMemoryParams>(),
+                annotations: None,
+            },
+            Tool {
+                name: "delete_memory".into(),
+                description: Some("Delete memory content by key".into()),
+                input_schema: to_input_schema::<DeleteMemoryParams>(),
+                annotations: None,
+            },
+            Tool {
                 name: "search_memory".into(),
                 description: Some("Search memory for similar content".into()),
                 input_schema: to_input_schema::<SearchMemoryParams>(),
@@ -490,6 +559,16 @@ impl ServerHandler for NeuralMemoryServer {
                 let params: RetrieveMemoryParams = serde_json::from_value(params)
                     .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
                 self.retrieve_memory(params).await
+            }
+            "update_memory" => {
+                let params: UpdateMemoryParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.update_memory(params).await
+            }
+            "delete_memory" => {
+                let params: DeleteMemoryParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.delete_memory(params).await
             }
             "search_memory" => {
                 let params: SearchMemoryParams = serde_json::from_value(params)
@@ -696,10 +775,22 @@ async fn main() -> Result<()> {
     
     if let Some(adaptive) = &server_for_shutdown.adaptive_module {
         let module = adaptive.lock().await;
-        if let Err(e) = module.save_state("./adaptive_memory_data").await {
-            eprintln!("Failed to save adaptive state: {}", e);
+        
+        // Save complete network state with timestamped checkpoint
+        eprintln!("🧠 Saving neural network weights and state...");
+        if let Err(e) = module.save_shutdown_checkpoint().await {
+            eprintln!("❌ Failed to save shutdown checkpoint: {}", e);
+            
+            // Fall back to basic state save
+            if let Err(e) = module.save_state("./adaptive_memory_data").await {
+                eprintln!("❌ Failed to save adaptive state: {}", e);
+            } else {
+                eprintln!("✅ Saved basic adaptive state (without full checkpoint)");
+            }
         } else {
-            eprintln!("✅ Saved adaptive neural network state");
+            eprintln!("✅ Saved complete neural network checkpoint with weights");
+            eprintln!("📁 Checkpoint location: ./adaptive_memory_data/network_checkpoints/");
+            eprintln!("🔗 Latest checkpoint symlink: ./adaptive_memory_data/network_checkpoints/latest.bin");
         }
     }
     

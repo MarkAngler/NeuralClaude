@@ -191,3 +191,12 @@ agentic_test1_results.md
 scripts/mcp_inspector.sh
 docs/WEIGHT_SAVING_IMPLEMENTATION_PLAN.md
 adaptive_memory_data/adaptive_state.json
+weight_persistence_solution.md
+WEIGHT_SAVING_FIX_SUMMARY.md
+weight_saving_problem.md
+neural-llm-memory/docs/evolution-threshold-config.md
+neural-llm-memory/tests/weight_persistence_test_plan.md
+neural-llm-memory/neural-llm-memory/test_report.md
+neural-llm-memory/docs/update_delete_operations.md
+neural-llm-memory/adaptive_memory_data/network_checkpoints/timestamp.txt
+neural-llm-memory/test_bulk_operations.py
