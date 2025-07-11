@@ -4,6 +4,7 @@ use ndarray::{Array2, Array3, Axis};
 use crate::nn::{WeightInit, Gradient, ActivationFunction, Activation};
 use crate::nn::tensor::{Tensor, TensorOps};
 use crate::nn::layers::weight_extraction::WeightExtraction;
+use crate::nn::layers::temporal::{LSTMLayer, GRULayer, MultiHeadAttentionLayer};
 use std::sync::Arc;
 use parking_lot::RwLock;
 
@@ -14,6 +15,9 @@ pub enum LayerType {
     Dropout(DropoutLayer),
     LayerNorm(LayerNormLayer),
     Embedding(EmbeddingLayer),
+    LSTM(LSTMLayer),
+    GRU(GRULayer),
+    MultiHeadAttention(MultiHeadAttentionLayer),
 }
 
 impl Layer for LayerType {
@@ -24,6 +28,9 @@ impl Layer for LayerType {
             LayerType::Dropout(layer) => layer.forward(input, training),
             LayerType::LayerNorm(layer) => layer.forward(input, training),
             LayerType::Embedding(_) => panic!("Embedding layer forward not implemented for LayerType"),
+            LayerType::LSTM(layer) => layer.forward(input, training),
+            LayerType::GRU(layer) => layer.forward(input, training),
+            LayerType::MultiHeadAttention(layer) => layer.forward(input, training),
         }
     }
     
@@ -34,6 +41,9 @@ impl Layer for LayerType {
             LayerType::Dropout(layer) => layer.backward(grad_output, input),
             LayerType::LayerNorm(layer) => layer.backward(grad_output, input),
             LayerType::Embedding(_) => panic!("Embedding layer backward not implemented for LayerType"),
+            LayerType::LSTM(layer) => layer.backward(grad_output, input),
+            LayerType::GRU(layer) => layer.backward(grad_output, input),
+            LayerType::MultiHeadAttention(layer) => layer.backward(grad_output, input),
         }
     }
     
@@ -44,6 +54,9 @@ impl Layer for LayerType {
             LayerType::Dropout(layer) => layer.update_weights(gradient, learning_rate),
             LayerType::LayerNorm(layer) => layer.update_weights(gradient, learning_rate),
             LayerType::Embedding(_) => {},
+            LayerType::LSTM(layer) => layer.update_weights(gradient, learning_rate),
+            LayerType::GRU(layer) => layer.update_weights(gradient, learning_rate),
+            LayerType::MultiHeadAttention(layer) => layer.update_weights(gradient, learning_rate),
         }
     }
     
@@ -54,6 +67,9 @@ impl Layer for LayerType {
             LayerType::Dropout(layer) => layer.get_params(),
             LayerType::LayerNorm(layer) => layer.get_params(),
             LayerType::Embedding(_) => vec![],
+            LayerType::LSTM(layer) => layer.get_params(),
+            LayerType::GRU(layer) => layer.get_params(),
+            LayerType::MultiHeadAttention(layer) => layer.get_params(),
         }
     }
     
@@ -64,6 +80,9 @@ impl Layer for LayerType {
             LayerType::Dropout(layer) => layer.get_params_mut(),
             LayerType::LayerNorm(layer) => layer.get_params_mut(),
             LayerType::Embedding(_) => vec![],
+            LayerType::LSTM(layer) => layer.get_params_mut(),
+            LayerType::GRU(layer) => layer.get_params_mut(),
+            LayerType::MultiHeadAttention(layer) => layer.get_params_mut(),
         }
     }
     
@@ -74,6 +93,9 @@ impl Layer for LayerType {
             LayerType::Dropout(layer) => Layer::to_layer_state(layer),
             LayerType::LayerNorm(layer) => Layer::to_layer_state(layer),
             LayerType::Embedding(layer) => Some(WeightExtraction::to_layer_state(layer)),
+            LayerType::LSTM(layer) => Layer::to_layer_state(layer),
+            LayerType::GRU(layer) => Layer::to_layer_state(layer),
+            LayerType::MultiHeadAttention(layer) => Layer::to_layer_state(layer),
         }
     }
 }
@@ -112,6 +134,45 @@ pub trait Layer: Send + Sync {
     // Method for persistence support
     fn to_layer_state(&self) -> Option<crate::persistence::LayerState> {
         None // Default implementation, override in specific layers
+    }
+    
+    // Methods for continual learning support
+    fn get_importance_weights(&self) -> Option<Vec<Array2<f32>>> {
+        None // Default implementation, override in layers that track importance
+    }
+    
+    fn set_importance_weights(&mut self, _weights: Vec<Array2<f32>>) {
+        // Default no-op, override in layers that support importance weights
+    }
+    
+    fn update_weights_with_ewc(
+        &mut self,
+        gradient: &Gradient,
+        learning_rate: f32,
+        importance: Option<&Vec<Array2<f32>>>,
+        lambda: f32,
+        prev_params: Option<&Vec<Array2<f32>>>,
+    ) {
+        if let (Some(imp), Some(prev)) = (importance, prev_params) {
+            // EWC-aware weight update
+            let params = self.get_params_mut();
+            
+            for (idx, param) in params.iter_mut().enumerate() {
+                if let Some(ref grad) = gradient.weights {
+                    if idx < imp.len() && idx < prev.len() {
+                        // Standard gradient + EWC penalty gradient
+                        let ewc_grad = lambda * &imp[idx] * (&**param - &prev[idx]);
+                        **param = &**param - learning_rate * (grad + &ewc_grad);
+                    } else {
+                        // Standard update if no importance weights
+                        **param = &**param - learning_rate * grad;
+                    }
+                }
+            }
+        } else {
+            // Standard update without EWC
+            self.update_weights(gradient, learning_rate);
+        }
     }
 }
 

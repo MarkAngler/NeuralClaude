@@ -89,6 +89,103 @@ impl NeuralNetwork {
         loss
     }
     
+    /// Train with continual learning regularization (EWC, SI, etc.)
+    pub fn train_step_with_regularization(
+        &mut self,
+        input: &Array2<f32>,
+        target: &Array2<f32>,
+        base_loss_fn: impl Fn(&Array2<f32>, &Array2<f32>) -> (f32, Array2<f32>),
+        regularization_fn: impl Fn() -> f32,
+    ) -> f32 {
+        // Forward pass
+        let output = self.forward(input, true);
+        
+        // Compute base loss and gradient
+        let (base_loss, loss_grad) = base_loss_fn(&output, target);
+        
+        // Add regularization loss
+        let reg_loss = regularization_fn();
+        let total_loss = base_loss + reg_loss;
+        
+        // Store intermediate activations for backward pass
+        let mut activations = vec![input.clone()];
+        let mut current = input.clone();
+        
+        for layer in &self.layers {
+            current = layer.forward(&current, true);
+            activations.push(current.clone());
+        }
+        
+        // Backward pass with combined loss
+        self.backward(&loss_grad, &activations);
+        
+        // Update weights
+        self.update_weights();
+        
+        // Update training state
+        let mut state = self.training_state.write();
+        state.update_step();
+        state.record_loss(total_loss);
+        
+        total_loss
+    }
+    
+    /// Update weights with EWC constraint
+    pub fn update_weights_with_ewc(
+        &mut self,
+        importance_weights: Option<&Vec<Vec<Array2<f32>>>>,
+        lambda: f32,
+        previous_params: Option<&Vec<Vec<Array2<f32>>>>,
+    ) {
+        let state = self.training_state.read();
+        let learning_rate = state.learning_rate;
+        
+        for (i, layer) in self.layers.iter_mut().enumerate() {
+            if i < state.gradients.len() {
+                let gradient = state.gradients[i].read();
+                
+                // Use EWC-aware update if importance weights available
+                if let (Some(importance), Some(prev_params)) = (importance_weights, previous_params) {
+                    if i < importance.len() && i < prev_params.len() {
+                        layer.update_weights_with_ewc(
+                            &gradient,
+                            learning_rate,
+                            Some(&importance[i]),
+                            lambda,
+                            Some(&prev_params[i]),
+                        );
+                    } else {
+                        layer.update_weights(&gradient, learning_rate);
+                    }
+                } else {
+                    layer.update_weights(&gradient, learning_rate);
+                }
+            }
+        }
+    }
+    
+    /// Extract network parameters for continual learning
+    pub fn extract_parameters(&self) -> Vec<Vec<Array2<f32>>> {
+        self.layers.iter()
+            .map(|layer| layer.get_params().iter().map(|p| (*p).clone()).collect())
+            .collect()
+    }
+    
+    /// Set network parameters from saved state
+    pub fn set_parameters(&mut self, params: &[Vec<Array2<f32>>]) {
+        for (layer_idx, layer) in self.layers.iter_mut().enumerate() {
+            if layer_idx < params.len() {
+                let mut layer_params = layer.get_params_mut();
+                
+                for (param_idx, param) in layer_params.iter_mut().enumerate() {
+                    if param_idx < params[layer_idx].len() {
+                        **param = params[layer_idx][param_idx].clone();
+                    }
+                }
+            }
+        }
+    }
+    
     pub fn predict(&self, input: &Array2<f32>) -> Array2<f32> {
         self.forward(input, false)
     }
@@ -226,5 +323,14 @@ pub mod loss {
         let grad = Array2::zeros(predictions.dim()); // Simplified - full gradient would be more complex
         
         (loss, grad)
+    }
+}
+
+impl std::fmt::Debug for NeuralNetwork {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NeuralNetwork")
+            .field("num_layers", &self.layers.len())
+            .field("training_state", &"<RwLock<TrainingState>>")
+            .finish()
     }
 }

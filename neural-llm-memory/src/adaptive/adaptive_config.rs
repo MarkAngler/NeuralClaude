@@ -41,9 +41,11 @@ pub enum ThreadPriority {
 impl Default for AdaptiveConfig {
     fn default() -> Self {
         let mut objectives = HashMap::new();
-        objectives.insert("response_time".to_string(), 0.4);
-        objectives.insert("memory_efficiency".to_string(), 0.3);
-        objectives.insert("accuracy".to_string(), 0.3);
+        objectives.insert("response_time".to_string(), 0.25);
+        objectives.insert("memory_efficiency".to_string(), 0.20);
+        objectives.insert("accuracy".to_string(), 0.20);
+        objectives.insert("episodic_recall".to_string(), 0.20);
+        objectives.insert("attention_quality".to_string(), 0.15);
         
         // Read evolution threshold from environment, defaulting to 50 for MCP environments
         let evolution_after_operations = env::var("NEURAL_MCP_EVOLUTION_THRESHOLD")

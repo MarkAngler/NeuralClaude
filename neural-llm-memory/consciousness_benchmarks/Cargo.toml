@@ -1,0 +1,48 @@
+[package]
+name = "consciousness_benchmarks"
+version = "0.1.0"
+edition = "2021"
+description = "Comprehensive benchmarks for validating human-like consciousness in AI systems"
+authors = ["NeuralClaude Team"]
+license = "MIT"
+repository = "https://github.com/neuralclaude/consciousness-benchmarks"
+keywords = ["consciousness", "ai", "benchmarks", "testing", "cognition"]
+categories = ["science", "simulation", "development-tools::testing"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+tokio = { version = "1.0", features = ["full"], optional = true }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+thiserror = "1.0"
+anyhow = "1.0"
+
+[features]
+default = []
+async = ["tokio"]
+neural-memory = []
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[[example]]
+name = "basic_assessment"
+path = "examples/basic_assessment.rs"
+
+[[example]]
+name = "neural_claude_test"
+path = "examples/neural_claude_test.rs"
+
+[[example]]
+name = "custom_benchmarks"
+path = "examples/custom_benchmarks.rs"
+
+[lib]
+name = "consciousness_benchmarks"
+path = "src/lib.rs"
+
+[[bin]]
+name = "consciousness_validator"
+path = "src/bin/consciousness_validator.rs"

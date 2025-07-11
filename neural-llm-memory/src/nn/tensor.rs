@@ -13,6 +13,20 @@ pub trait TensorOps {
     fn layer_norm(input: &Array2<f32>, eps: f32) -> Array2<f32>;
 }
 
+impl Tensor {
+    pub fn cosine_similarity(a: &Array2<f32>, b: &Array2<f32>) -> f32 {
+        let dot_product: f32 = (a * b).sum();
+        let norm_a: f32 = (a * a).sum().sqrt();
+        let norm_b: f32 = (b * b).sum().sqrt();
+        
+        if norm_a > 0.0 && norm_b > 0.0 {
+            dot_product / (norm_a * norm_b)
+        } else {
+            0.0
+        }
+    }
+}
+
 impl TensorOps for Tensor {
     fn matmul_simd(a: &Array2<f32>, b: &Array2<f32>) -> Array2<f32> {
         let (m, k) = a.dim();

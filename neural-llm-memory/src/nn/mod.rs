@@ -7,6 +7,7 @@ pub mod network;
 pub mod tensor;
 
 pub use layer::{Layer, LayerType, LinearLayer, Conv1DLayer, DropoutLayer, LayerNormLayer, EmbeddingLayer};
+pub use layers::temporal::{LSTMLayer, GRULayer, MultiHeadAttentionLayer};
 pub use activation::{Activation, ActivationFunction};
 pub use network::{NeuralNetwork, NetworkBuilder};
 pub use tensor::{Tensor, TensorOps};

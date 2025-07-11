@@ -76,3 +76,7 @@ path = "examples/self_optimizing_demo.rs"
 [[example]]
 name = "persistence_demo"
 path = "examples/persistence_demo.rs"
+
+[[example]]
+name = "continual_learning_demo"
+path = "examples/continual_learning_demo.rs"

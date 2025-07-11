@@ -15,6 +15,7 @@ pub enum ActivationFunction {
     Identity,
     #[serde(rename = "SiLU")]
     SiLU, // Alias for Swish
+    Softmax,
 }
 
 pub struct Activation;
@@ -31,6 +32,7 @@ impl Activation {
             ActivationFunction::Mish => Self::mish(input),
             ActivationFunction::ELU(alpha) => Self::elu(input, alpha),
             ActivationFunction::Identity => input.clone(),
+            ActivationFunction::Softmax => Self::softmax(input),
         }
     }
     
@@ -49,6 +51,7 @@ impl Activation {
             ActivationFunction::Mish => Self::mish_backward(grad_output, input),
             ActivationFunction::ELU(alpha) => Self::elu_backward(grad_output, input, alpha),
             ActivationFunction::Identity => grad_output.clone(),
+            ActivationFunction::Softmax => Self::softmax_backward(grad_output, input),
         }
     }
     
@@ -91,6 +94,15 @@ impl Activation {
     
     fn elu(input: &Array2<f32>, alpha: f32) -> Array2<f32> {
         input.mapv(|x| if x > 0.0 { x } else { alpha * (x.exp() - 1.0) })
+    }
+    
+    fn softmax(input: &Array2<f32>) -> Array2<f32> {
+        use ndarray::Axis;
+        let max_vals = input.map_axis(Axis(1), |row| row.iter().cloned().fold(f32::NEG_INFINITY, f32::max));
+        let exp_vals = input - &max_vals.insert_axis(Axis(1));
+        let exp_vals = exp_vals.mapv(|x| x.exp());
+        let sum_exp = exp_vals.sum_axis(Axis(1));
+        &exp_vals / &sum_exp.insert_axis(Axis(1))
     }
     
     // Backward activations
@@ -146,5 +158,21 @@ impl Activation {
     
     fn elu_backward(grad_output: &Array2<f32>, input: &Array2<f32>, alpha: f32) -> Array2<f32> {
         grad_output * &input.mapv(|x| if x > 0.0 { 1.0 } else { alpha * x.exp() })
+    }
+    
+    fn softmax_backward(grad_output: &Array2<f32>, input: &Array2<f32>) -> Array2<f32> {
+        let softmax = Self::softmax(input);
+        let batch_size = grad_output.shape()[0];
+        let mut result = Array2::zeros(grad_output.raw_dim());
+        
+        for i in 0..batch_size {
+            let s = softmax.row(i);
+            let grad = grad_output.row(i);
+            let dot_product = s.dot(&grad);
+            let grad_softmax = &s * (&grad - dot_product);
+            result.row_mut(i).assign(&grad_softmax);
+        }
+        
+        result
     }
 }

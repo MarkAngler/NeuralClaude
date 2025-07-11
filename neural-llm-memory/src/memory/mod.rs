@@ -7,12 +7,14 @@ pub mod storage;
 pub mod persistent_memory_module;
 pub mod persistent_memory_module_ext;
 pub mod key_value_store;
+pub mod episodic_memory;
 
 pub use memory_bank::{MemoryBank, MemoryEntry};
 pub use memory_module::{MemoryModule, MemoryConfig};
 pub use retrieval::{RetrievalStrategy, SimilarityMetric};
 pub use storage::{StorageBackend, InMemoryStorage};
 pub use persistent_memory_module::{PersistentMemoryModule, PersistentMemoryBuilder, PersistentConfig};
+pub use episodic_memory::{Episode, EpisodicBank, EpisodicStats};
 
 use ndarray::Array2;
 use serde::{Serialize, Deserialize};

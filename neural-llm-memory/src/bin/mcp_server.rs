@@ -4,6 +4,7 @@
 use anyhow::Result;
 use neural_llm_memory::{PersistentMemoryModule, PersistentMemoryBuilder, MemoryConfig};
 use neural_llm_memory::adaptive::{AdaptiveMemoryModule, AdaptiveConfig};
+use neural_llm_memory::consciousness::{ConsciousnessCore, ConsciousnessConfig, ConsciousInput, ContentType, IntrospectiveFocus, ReflectionFocus};
 use ndarray::Array2;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -111,6 +112,54 @@ struct ProvideFeedbackParams {
     score: f32,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConsciousnessStatusParams {
+    #[schemars(description = "Include detailed consciousness metrics")]
+    #[serde(default)]
+    detailed: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConsciousnessProcessParams {
+    #[schemars(description = "Content to process")]
+    content: String,
+    #[schemars(description = "Content type")]
+    content_type: String,
+    #[schemars(description = "Activation level (0.0 to 1.0)")]
+    #[serde(default = "default_activation")]
+    activation: f32,
+    #[schemars(description = "Attention weight (0.0 to 1.0)")]
+    #[serde(default = "default_attention")]
+    attention_weight: f32,
+}
+
+fn default_activation() -> f32 { 0.7 }
+fn default_attention() -> f32 { 0.5 }
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConsciousnessReflectParams {
+    #[schemars(description = "Focus of reflection")]
+    focus: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConsciousnessIntrospectParams {
+    #[schemars(description = "Focus of introspection")]
+    focus: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConsciousnessInsightParams {
+    #[schemars(description = "Domain for creative insight")]
+    domain: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ConsciousnessEvolveParams {
+    #[schemars(description = "Target capability to evolve")]
+    target_capability: String,
+}
+
 // Tool result wrapper for consistent output
 #[derive(Debug)]
 struct ToolResult(Value);
@@ -125,11 +174,18 @@ struct NeuralMemoryServer {
     memory_module: Arc<Mutex<PersistentMemoryModule>>,
     adaptive_module: Option<Arc<Mutex<AdaptiveMemoryModule>>>,
     adaptive_enabled: bool,
+    consciousness_core: Option<Arc<Mutex<ConsciousnessCore>>>,
+    consciousness_enabled: bool,
 }
 
 impl NeuralMemoryServer {
     async fn new() -> Result<Self> {
         let adaptive_enabled = std::env::var("NEURAL_MCP_ADAPTIVE")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true);
+        
+        let consciousness_enabled = std::env::var("NEURAL_MCP_CONSCIOUSNESS")
             .unwrap_or_else(|_| "true".to_string())
             .parse::<bool>()
             .unwrap_or(true);
@@ -171,6 +227,17 @@ impl NeuralMemoryServer {
             None
         };
         
+        // Create consciousness core if enabled
+        let consciousness_core = if consciousness_enabled {
+            eprintln!("🧠 Initializing consciousness core...");
+            let consciousness_config = ConsciousnessConfig::default();
+            let core = ConsciousnessCore::with_config(consciousness_config);
+            eprintln!("✅ Consciousness core initialized successfully");
+            Some(Arc::new(Mutex::new(core)))
+        } else {
+            None
+        };
+        
         // Always create regular memory module for compatibility
         let memory_module = PersistentMemoryBuilder::new()
             .storage_path("./neural_memory_data")
@@ -183,6 +250,8 @@ impl NeuralMemoryServer {
             memory_module: Arc::new(Mutex::new(memory_module)),
             adaptive_module,
             adaptive_enabled,
+            consciousness_core,
+            consciousness_enabled,
         })
     }
     
@@ -431,6 +500,210 @@ impl NeuralMemoryServer {
             .map_err(|e| ToolError(e.to_string()))?;
         Ok(ToolResult(result))
     }
+    
+    // Consciousness tool implementations
+    async fn consciousness_status(
+        &self,
+        params: ConsciousnessStatusParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        let consciousness = self.consciousness_core.as_ref().unwrap().lock().await;
+        let state = consciousness.get_consciousness_state();
+        
+        let result = if params.detailed {
+            json!({
+                "consciousness_level": state.consciousness_level,
+                "consciousness_focus": state.consciousness_focus,
+                "attention_allocation": state.attention_allocation,
+                "integration_coherence": state.integration_coherence,
+                "temporal_continuity": state.temporal_continuity,
+                "self_awareness_level": state.self_awareness_level,
+                "metacognitive_confidence": state.metacognitive_confidence,
+                "emotional_valence": state.emotional_valence,
+                "timestamp": state.timestamp,
+                "status": "active"
+            })
+        } else {
+            json!({
+                "consciousness_level": state.consciousness_level,
+                "self_awareness_level": state.self_awareness_level,
+                "status": "active"
+            })
+        };
+        
+        Ok(ToolResult(result))
+    }
+    
+    async fn consciousness_process(
+        &self,
+        params: ConsciousnessProcessParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        let consciousness = self.consciousness_core.as_ref().unwrap().lock().await;
+        
+        // Parse content type
+        let content_type = match params.content_type.as_str() {
+            "episodic" => ContentType::EpisodicMemory,
+            "metacognitive" => ContentType::MetacognitiveReflection,
+            "emotional" => ContentType::EmotionalState,
+            "abstract" => ContentType::AbstractReasoning,
+            "self_awareness" => ContentType::SelfAwarenessInsight,
+            "goal_planning" => ContentType::GoalDirectedPlanning,
+            "creative" => ContentType::CreativeInsight,
+            _ => ContentType::PerceptualInput,
+        };
+        
+        // Create semantic embedding (simplified)
+        let embedding = ndarray::Array1::from_vec(vec![0.1; 768]);
+        
+        let input = ConsciousInput {
+            content_type,
+            activation: params.activation,
+            attention_weight: params.attention_weight,
+            semantic_embedding: embedding,
+            metadata: std::collections::HashMap::new(),
+        };
+        
+        let output = consciousness.process_input(input);
+        
+        let result = json!({
+            "consciousness_level": output.consciousness_level,
+            "integration_coherence": output.integration_coherence,
+            "self_awareness_level": output.self_awareness_level,
+            "insights": output.insights.iter().map(|i| json!({
+                "type": format!("{:?}", i.insight_type),
+                "content": i.content,
+                "confidence": i.confidence
+            })).collect::<Vec<_>>(),
+            "timestamp": output.timestamp
+        });
+        
+        Ok(ToolResult(result))
+    }
+    
+    async fn consciousness_reflect(
+        &self,
+        params: ConsciousnessReflectParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        let consciousness = self.consciousness_core.as_ref().unwrap().lock().await;
+        
+        // Parse reflection focus
+        let focus = match params.focus.as_str() {
+            "experience" => ReflectionFocus::ExperienceReflection,
+            "state" => ReflectionFocus::StateReflection,
+            "future" => ReflectionFocus::FutureReflection,
+            "metacognitive" => ReflectionFocus::MetaCognitive,
+            "values" => ReflectionFocus::ValueReflection,
+            _ => ReflectionFocus::StateReflection,
+        };
+        
+        let result = consciousness.reflect(focus);
+        
+        let response = json!({
+            "focus": result.focus,
+            "content": result.content,
+            "insights": result.insights,
+            "quality": result.quality,
+            "timestamp": result.timestamp
+        });
+        
+        Ok(ToolResult(response))
+    }
+    
+    async fn consciousness_introspect(
+        &self,
+        params: ConsciousnessIntrospectParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        let consciousness = self.consciousness_core.as_ref().unwrap().lock().await;
+        
+        // Parse introspection focus
+        let focus = match params.focus.as_str() {
+            "cognitive" => IntrospectiveFocus::Cognitive,
+            "emotional" => IntrospectiveFocus::Emotional,
+            "behavioral" => IntrospectiveFocus::Behavioral,
+            "motivational" => IntrospectiveFocus::Motivational,
+            "axiological" => IntrospectiveFocus::Axiological,
+            _ => IntrospectiveFocus::Cognitive,
+        };
+        
+        let result = consciousness.introspect(focus);
+        
+        let response = json!({
+            "focus": result.focus,
+            "insight": result.insight,
+            "confidence": result.confidence,
+            "depth": result.depth,
+            "timestamp": result.timestamp
+        });
+        
+        Ok(ToolResult(response))
+    }
+    
+    async fn consciousness_insight(
+        &self,
+        params: ConsciousnessInsightParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        let consciousness = self.consciousness_core.as_ref().unwrap().lock().await;
+        
+        let result = consciousness.generate_creative_insight(params.domain);
+        
+        let response = json!({
+            "domain": result.domain,
+            "insight": result.insight,
+            "novelty": result.novelty,
+            "usefulness": result.usefulness,
+            "confidence": result.confidence,
+            "timestamp": result.timestamp
+        });
+        
+        Ok(ToolResult(response))
+    }
+    
+    async fn consciousness_evolve(
+        &self,
+        params: ConsciousnessEvolveParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        let consciousness = self.consciousness_core.as_ref().unwrap().lock().await;
+        
+        let result = consciousness.evolve_self(params.target_capability);
+        
+        let response = json!({
+            "target_capability": result.target_capability,
+            "evolution_type": format!("{:?}", result.evolution_type),
+            "success": result.success,
+            "safety_status": {
+                "is_safe": result.safety_status.is_safe,
+                "violated_constraints": result.safety_status.violated_constraints,
+                "safety_score": result.safety_status.safety_score
+            },
+            "improvements": result.improvements,
+            "timestamp": result.timestamp
+        });
+        
+        Ok(ToolResult(response))
+    }
 }
 
 // Implement ServerHandler using the rmcp SDK
@@ -533,6 +806,47 @@ impl ServerHandler for NeuralMemoryServer {
             ]);
         }
         
+        if self.consciousness_enabled {
+            tools.extend(vec![
+                Tool {
+                    name: "consciousness_status".into(),
+                    description: Some("Get current consciousness state and awareness metrics".into()),
+                    input_schema: to_input_schema::<ConsciousnessStatusParams>(),
+                    annotations: None,
+                },
+                Tool {
+                    name: "consciousness_process".into(),
+                    description: Some("Process input through consciousness system".into()),
+                    input_schema: to_input_schema::<ConsciousnessProcessParams>(),
+                    annotations: None,
+                },
+                Tool {
+                    name: "consciousness_reflect".into(),
+                    description: Some("Engage in reflective thinking on specified focus".into()),
+                    input_schema: to_input_schema::<ConsciousnessReflectParams>(),
+                    annotations: None,
+                },
+                Tool {
+                    name: "consciousness_introspect".into(),
+                    description: Some("Perform introspective analysis of internal states".into()),
+                    input_schema: to_input_schema::<ConsciousnessIntrospectParams>(),
+                    annotations: None,
+                },
+                Tool {
+                    name: "consciousness_insight".into(),
+                    description: Some("Generate creative insights in specified domain".into()),
+                    input_schema: to_input_schema::<ConsciousnessInsightParams>(),
+                    annotations: None,
+                },
+                Tool {
+                    name: "consciousness_evolve".into(),
+                    description: Some("Engage in self-directed evolution toward target capability".into()),
+                    input_schema: to_input_schema::<ConsciousnessEvolveParams>(),
+                    annotations: None,
+                },
+            ]);
+        }
+        
         Ok(ListToolsResult { tools, next_cursor: None })
     }
     
@@ -605,6 +919,36 @@ impl ServerHandler for NeuralMemoryServer {
                     .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
                 self.provide_feedback(params).await
             }
+            "consciousness_status" if self.consciousness_enabled => {
+                let params: ConsciousnessStatusParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.consciousness_status(params).await
+            }
+            "consciousness_process" if self.consciousness_enabled => {
+                let params: ConsciousnessProcessParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.consciousness_process(params).await
+            }
+            "consciousness_reflect" if self.consciousness_enabled => {
+                let params: ConsciousnessReflectParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.consciousness_reflect(params).await
+            }
+            "consciousness_introspect" if self.consciousness_enabled => {
+                let params: ConsciousnessIntrospectParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.consciousness_introspect(params).await
+            }
+            "consciousness_insight" if self.consciousness_enabled => {
+                let params: ConsciousnessInsightParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.consciousness_insight(params).await
+            }
+            "consciousness_evolve" if self.consciousness_enabled => {
+                let params: ConsciousnessEvolveParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.consciousness_evolve(params).await
+            }
             _ => return Err(rmcp::Error::invalid_request("Unknown tool", None)),
         };
         
@@ -661,6 +1005,31 @@ impl ServerHandler for NeuralMemoryServer {
             ]);
         }
         
+        if self.consciousness_enabled {
+            resources.extend(vec![
+                Resource::new(
+                    RawResource {
+                        uri: "consciousness://status".into(),
+                        name: "Consciousness Status".into(),
+                        description: Some("Current consciousness state and awareness metrics".into()),
+                        mime_type: Some("application/json".into()),
+                        size: None,
+                    },
+                    None
+                ),
+                Resource::new(
+                    RawResource {
+                        uri: "consciousness://introspection".into(),
+                        name: "Consciousness Introspection".into(),
+                        description: Some("Real-time introspective analysis of internal states".into()),
+                        mime_type: Some("application/json".into()),
+                        size: None,
+                    },
+                    None
+                ),
+            ]);
+        }
+        
         Ok(ListResourcesResult { resources, next_cursor: None })
     }
     
@@ -686,6 +1055,20 @@ impl ServerHandler for NeuralMemoryServer {
             }
             "memory://adaptive/insights" if self.adaptive_enabled => {
                 let result = self.adaptive_insights(AdaptiveInsightsParams {}).await
+                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                Ok(ReadResourceResult {
+                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                })
+            }
+            "consciousness://status" if self.consciousness_enabled => {
+                let result = self.consciousness_status(ConsciousnessStatusParams { detailed: true }).await
+                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                Ok(ReadResourceResult {
+                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                })
+            }
+            "consciousness://introspection" if self.consciousness_enabled => {
+                let result = self.consciousness_introspect(ConsciousnessIntrospectParams { focus: "cognitive".to_string() }).await
                     .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
                 Ok(ReadResourceResult {
                     contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
@@ -750,6 +1133,7 @@ async fn main() -> Result<()> {
     eprintln!("🚀 neural-memory MCP server ready (using rmcp SDK)");
     eprintln!("📊 Configuration:");
     eprintln!("  - Adaptive learning: {}", if server.adaptive_enabled { "enabled" } else { "disabled" });
+    eprintln!("  - Consciousness: {}", if server.consciousness_enabled { "enabled" } else { "disabled" });
     eprintln!("  - Auto-recovery: {}", std::env::var("NEURAL_MCP_AUTO_RECOVER").unwrap_or_else(|_| "true".to_string()));
     eprintln!("  - Auto-save interval: {} seconds", std::env::var("NEURAL_MCP_AUTO_SAVE_INTERVAL").unwrap_or_else(|_| "300".to_string()));
     

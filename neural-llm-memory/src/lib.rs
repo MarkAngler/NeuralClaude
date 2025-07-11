@@ -15,6 +15,11 @@ pub mod storage;
 pub mod self_optimizing;
 pub mod adaptive;
 pub mod persistence;
+pub mod consolidation;
+pub mod metacognition;
+pub mod continual_learning;
+pub mod consciousness;
+pub mod emotional;
 
 pub use nn::{NeuralNetwork, Layer, Activation};
 pub use memory::{MemoryBank, MemoryModule, MemoryConfig, PersistentMemoryModule, PersistentMemoryBuilder};
