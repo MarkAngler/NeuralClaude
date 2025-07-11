@@ -2424,12 +2424,13 @@ impl ConsciousnessCore {
         
         // Generate insights from reflection
         let insights = self.extract_insights_from_reflection(&reflection_content);
+        let quality = self.assess_reflection_quality(&reflection_content);
         
         ReflectionResult {
             focus: format!("{:?}", focus),
             content: reflection_content,
             insights,
-            quality: self.assess_reflection_quality(&reflection_content),
+            quality,
             timestamp: current_time,
         }
     }

@@ -240,7 +240,7 @@ impl StrategySelector {
     /// Predict strategy effectiveness scores
     fn predict_strategy_effectiveness(&self, context: &Array1<f32>) -> Vec<f32> {
         let model = self.effectiveness_model.read().unwrap();
-        let input_arr = context.insert_axis(ndarray::Axis(0)); // Add batch dimension
+        let input_arr = context.clone().insert_axis(ndarray::Axis(0)); // Add batch dimension
         let predictions = model.forward(&input_arr, false);
         predictions.remove_axis(ndarray::Axis(0)).to_vec() // Remove batch dimension and convert to vec
     }
@@ -253,7 +253,7 @@ impl StrategySelector {
     ) -> usize {
         // Find current strategy if any
         let current_strategy_idx = state.active_patterns.first()
-            .and_then(|p| self.find_strategy_index(&p.pattern_type));
+            .and_then(|p| self.find_strategy_index_by_name(&p.pattern_type));
         
         if let Some(current_idx) = current_strategy_idx {
             let transition_matrix = self.transition_matrix.read().unwrap();
@@ -380,10 +380,16 @@ impl StrategySelector {
         }
     }
     
-    /// Find strategy index
+    /// Find strategy index by reference
     fn find_strategy_index(&self, strategy: &ThinkingStrategy) -> Option<usize> {
         self.strategies.iter()
             .position(|s| s.name == strategy.name)
+    }
+
+    /// Find strategy index by name
+    fn find_strategy_index_by_name(&self, strategy_name: &str) -> Option<usize> {
+        self.strategies.iter()
+            .position(|s| s.name == strategy_name)
     }
     
     /// Check if pattern matches strategy

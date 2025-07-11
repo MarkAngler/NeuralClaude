@@ -74,6 +74,7 @@ impl ElasticWeightConsolidation {
         
         // Sample subset of data for Fisher calculation
         let samples = data.sample(self.fisher_samples);
+        let n_samples = samples.len() as f32;
         
         for (input, target) in samples {
             // Forward pass
@@ -106,7 +107,6 @@ impl ElasticWeightConsolidation {
         }
         
         // Average over samples
-        let n_samples = samples.len() as f32;
         for weight in fisher_weights.weights.values_mut() {
             *weight = &*weight / n_samples;
         }
@@ -213,10 +213,11 @@ impl SynapticIntelligence {
         let param_change = new_param - old_param;
         let importance_update = gradient * &param_change;
         
+        let abs_importance = importance_update.mapv(|x| x.abs());
         self.omega
             .entry(param_name.to_string())
-            .and_modify(|w| *w = w + &importance_update.mapv(|x| x.abs()))
-            .or_insert(importance_update.mapv(|x| x.abs()));
+            .and_modify(|w| *w = &*w + &abs_importance)
+            .or_insert(abs_importance);
     }
 }
 

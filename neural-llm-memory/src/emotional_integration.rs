@@ -1,8 +1,9 @@
-use crate::emotional::{
-    EmotionalState, EmotionalMemory, AffectiveWeighting, EmotionalRegulation,
+use crate::emotional::EmotionalState;
+use crate::emotional_types::{
+    EmotionalMemory, AffectiveWeighting, EmotionalRegulation,
     SomaticMarker, EmpathySimulator, EmotionalIntelligence, Emotion
 };
-use crate::memory::{MemoryBank, MemoryOperations};
+use crate::memory::{MemoryBank, MemoryOperations, MemoryKey, MemoryValue, MemoryMetadata};
 // use crate::metacognition::{MetaCognitiveMonitor, CognitivePattern};
 use crate::adaptive::AdaptiveMemoryModule;
 use std::collections::HashMap;
@@ -48,7 +49,16 @@ impl EmotionallyAwareMemory {
         
         // Store in memory bank with emotional weighting
         let mut memory = self.memory.write().map_err(|_| "Lock error")?;
-        memory.store(key.clone(), content).map_err(|e| e.message)?;
+        let memory_key = MemoryKey::new(key.clone(), &emotional_state.emotions.iter().map(|(k, v)| format!("{}: {}", k, v)).collect::<Vec<_>>().join(", "));
+        let memory_value = MemoryValue {
+            embedding: content.to_vec(),
+            content: key.clone(),
+            metadata: MemoryMetadata {
+                importance,
+                ..Default::default()
+            },
+        };
+        memory.store(memory_key, memory_value).map_err(|e| format!("{}", e))?;
         
         // Tag with emotional state
         let mut tags = self.emotional_tags.write().map_err(|_| "Lock error")?;
@@ -57,7 +67,7 @@ impl EmotionallyAwareMemory {
         // Update somatic markers if high arousal
         if emotional_state.arousal > 0.7 {
             let mut markers = self.somatic_markers.write().map_err(|_| "Lock error")?;
-            markers.learn_association(content.to_vec(), emotional_state);
+            markers.learn_association(content.to_vec(), emotional_state.clone());
         }
         
         // Update regulation system
@@ -72,7 +82,7 @@ impl EmotionallyAwareMemory {
                                   current_mood: &EmotionalState, 
                                   k: usize) -> Vec<(String, f32)> {
         // Convert 1D query to 2D for memory search
-        let query_2d = query.insert_axis(ndarray::Axis(0));
+        let query_2d = query.clone().insert_axis(ndarray::Axis(0));
         
         let memory = self.memory.read().unwrap();
         let base_results = memory.search(&query_2d, k * 2); // Get more candidates
@@ -82,7 +92,7 @@ impl EmotionallyAwareMemory {
         // Re-rank based on mood congruence
         let mut scored_results: Vec<(String, f32, f32)> = base_results.into_iter()
             .filter_map(|(key, _value, similarity)| {
-                let key_str = key.clone(); // Convert MemoryKey to String
+                let key_str = key.id.clone(); // Get the string ID from MemoryKey
                 if let Some(memory_emotion) = tags.get(&key_str) {
                     let mood_score = self.affective_weighting
                         .mood_congruent_retrieval(memory_emotion, current_mood);
@@ -110,13 +120,13 @@ impl EmotionallyAwareMemory {
     
     /// Simulate emotional response for another agent
     pub fn simulate_empathy(&self, agent_id: &str, context: &Array1<f32>) -> EmotionalState {
-        let mut empathy = self.empathy.write().unwrap();
+        let empathy = self.empathy.write().unwrap();
         empathy.simulate_other(agent_id, &context.to_vec())
     }
     
     /// Apply emotional contagion from interaction
     pub fn apply_contagion(&self, other_emotion: &EmotionalState) {
-        let mut regulation = self.regulation.write().unwrap();
+        let regulation = self.regulation.write().unwrap();
         let mut current = regulation.current_state.write().unwrap();
         
         let empathy = self.empathy.read().unwrap();
@@ -318,7 +328,7 @@ mod tests {
     
     #[test]
     fn test_emotional_memory_integration() {
-        let memory_bank = Arc::new(RwLock::new(MemoryBank::new(100)));
+        let memory_bank = Arc::new(RwLock::new(MemoryBank::new(100, 10)));
         let mut emotional_memory = EmotionallyAwareMemory::new(memory_bank);
         
         // Store memory with joy
@@ -335,7 +345,7 @@ mod tests {
     
     #[test]
     fn test_mood_congruent_retrieval() {
-        let memory_bank = Arc::new(RwLock::new(MemoryBank::new(100)));
+        let memory_bank = Arc::new(RwLock::new(MemoryBank::new(100, 10)));
         let emotional_memory = EmotionallyAwareMemory::new(memory_bank);
         
         // Store memories with different emotions

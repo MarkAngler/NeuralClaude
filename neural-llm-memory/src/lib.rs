@@ -20,6 +20,8 @@ pub mod metacognition;
 pub mod continual_learning;
 pub mod consciousness;
 pub mod emotional;
+pub mod emotional_types;
+pub mod emotional_integration;
 
 pub use nn::{NeuralNetwork, Layer, Activation};
 pub use memory::{MemoryBank, MemoryModule, MemoryConfig, PersistentMemoryModule, PersistentMemoryBuilder};

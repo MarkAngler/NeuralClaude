@@ -157,15 +157,15 @@ pub trait Layer: Send + Sync {
             // EWC-aware weight update
             let params = self.get_params_mut();
             
-            for (idx, param) in params.iter_mut().enumerate() {
+            for (idx, param) in params.into_iter().enumerate() {
                 if let Some(ref grad) = gradient.weights {
                     if idx < imp.len() && idx < prev.len() {
                         // Standard gradient + EWC penalty gradient
-                        let ewc_grad = lambda * &imp[idx] * (&**param - &prev[idx]);
-                        **param = &**param - learning_rate * (grad + &ewc_grad);
+                        let ewc_grad = lambda * &imp[idx] * (&*param - &prev[idx]);
+                        *param = &*param - learning_rate * (grad + &ewc_grad);
                     } else {
                         // Standard update if no importance weights
-                        **param = &**param - learning_rate * grad;
+                        *param = &*param - learning_rate * grad;
                     }
                 }
             }

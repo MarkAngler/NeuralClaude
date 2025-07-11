@@ -1,6 +1,7 @@
-use neural_llm_memory::emotional::{
-    EmotionalState, Emotion, AffectiveWeighting, EmotionalRegulation,
-    SomaticMarker, EmpathySimulator, EmotionalIntelligence
+use neural_llm_memory::emotional::EmotionalState;
+use neural_llm_memory::emotional_types::{
+    Emotion, AffectiveWeighting, EmotionalRegulation,
+    SomaticMarker, EmpathySimulator, EmotionalIntelligence, EmotionalMemory
 };
 use neural_llm_memory::memory::MemoryBank;
 use neural_llm_memory::emotional_integration::{
@@ -16,13 +17,13 @@ fn main() {
     println!("🎭 Neural Memory with Emotional Intelligence Demo\n");
     
     // Initialize systems
-    let memory_bank = Arc::new(RwLock::new(MemoryBank::new(1000)));
+    let memory_bank = Arc::new(RwLock::new(MemoryBank::new(1000, 100)));
     let emotional_memory = Arc::new(EmotionallyAwareMemory::new(memory_bank.clone()));
     // let adaptive_module = Arc::new(AdaptiveMemoryModule::new(768, 1000));
     
     // Demo 1: Emotional State Creation and Blending
     println!("📊 Demo 1: Emotional States and Blending");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let joy = EmotionalState::from_emotion(Emotion::Joy, 0.8);
     println!("Pure Joy: valence={:.2}, arousal={:.2}", joy.valence, joy.arousal);
@@ -36,7 +37,7 @@ fn main() {
     
     // Demo 2: Affective Memory Storage
     println!("\n📝 Demo 2: Storing Memories with Emotional Context");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     // Store a joyful memory
     let happy_content = Array1::from_vec(vec![0.8, 0.9, 0.7, 0.85, 0.95]);
@@ -67,7 +68,7 @@ fn main() {
     
     // Demo 3: Mood-Congruent Retrieval
     println!("\n🔍 Demo 3: Mood-Congruent Memory Retrieval");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let query = Array1::from_vec(vec![0.6, 0.6, 0.6, 0.6, 0.6]);
     
@@ -89,7 +90,7 @@ fn main() {
     
     // Demo 4: Somatic Markers (Gut Feelings)
     println!("\n🎯 Demo 4: Somatic Markers and Intuition");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let risky_pattern = Array1::from_vec(vec![0.9, 0.1, 0.8, 0.2, 0.9]);
     let safe_pattern = Array1::from_vec(vec![0.5, 0.5, 0.5, 0.5, 0.5]);
@@ -118,7 +119,7 @@ fn main() {
     
     // Demo 5: Emotional Regulation
     println!("\n🎛️ Demo 5: Emotional Regulation");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let mut regulation = EmotionalRegulation::new();
     
@@ -143,7 +144,7 @@ fn main() {
     
     // Demo 6: Empathy Simulation
     println!("\n💝 Demo 6: Empathy and Emotional Contagion");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let mut empathy_sim = EmpathySimulator::new();
     
@@ -168,7 +169,7 @@ fn main() {
     
     // Demo 7: Emotional Decision Making
     println!("\n🤔 Demo 7: Emotion-Influenced Decision Making");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let mut decision_maker = EmotionalDecisionMaker::new(emotional_memory.clone());
     
@@ -191,7 +192,7 @@ fn main() {
     
     // Demo 8: Emotional Intelligence Metrics
     println!("\n📈 Demo 8: Emotional Intelligence Assessment");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let eq = EmotionalIntelligence::new();
     println!("Initial EQ Score: {:.2}", eq.eq_score());
@@ -203,7 +204,7 @@ fn main() {
     
     // Demo 9: Integrated Emotional-Adaptive Memory
     println!("\n🧠 Demo 9: Emotional-Adaptive Memory Integration");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let mut integrated = EmotionalAdaptiveMemory::new(emotional_memory.clone());
     
@@ -229,7 +230,7 @@ fn main() {
     
     // Demo 10: Emotional Pattern Detection
     println!("\n🔄 Demo 10: Emotional Pattern Analysis");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     
     let mut pattern_regulation = EmotionalRegulation::new();
     

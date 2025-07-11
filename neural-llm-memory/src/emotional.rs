@@ -524,14 +524,15 @@ impl EmotionalProcessor {
         
         // Update associations
         let current_association = learning.associations.get(&context).unwrap_or(&0.0);
-        let new_association = current_association + learning.learning_rate * outcome;
+        let learning_rate = learning.learning_rate;
+        let new_association = current_association + learning_rate * outcome;
         learning.associations.insert(context.clone(), new_association);
         
         // Store learning event
         learning.learning_history.push(LearningEvent {
             context,
             outcome,
-            strength: learning.learning_rate,
+            strength: learning_rate,
             timestamp: current_time,
         });
     }
