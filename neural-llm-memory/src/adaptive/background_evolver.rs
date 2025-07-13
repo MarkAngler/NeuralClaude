@@ -138,6 +138,17 @@ impl BackgroundEvolver {
         // Convert usage metrics to training samples
         let training_samples = Self::prepare_training_data(&training_data);
         
+        // Set correct input/output sizes based on training data
+        if !training_samples.is_empty() {
+            let (input, target) = &training_samples[0];
+            optimizer.set_input_size(input.len());
+            optimizer.set_output_size(target.len());
+        } else {
+            // Default sizes if no training data
+            optimizer.set_input_size(3);  // Matches our dummy data
+            optimizer.set_output_size(1); // Matches our dummy data
+        }
+        
         // Run evolution
         for generation in 0..config.generations {
             // Update progress
@@ -155,17 +166,29 @@ impl BackgroundEvolver {
                 }
             }
             
-            // Train with current data (simplified for now)
-            if !training_samples.is_empty() {
-                let sample_batch: Vec<_> = training_samples.iter()
-                    .take(10)
-                    .cloned()
-                    .collect();
-                
-                for (input, target) in &sample_batch {
-                    let _ = optimizer.train(&ndarray::Array2::from_shape_vec((1, input.len()), input.clone()).unwrap(),
-                                          &ndarray::Array2::from_shape_vec((1, target.len()), target.clone()).unwrap());
-                }
+            // Prepare validation data for evolution
+            let validation_data: Vec<(ndarray::Array2<f32>, ndarray::Array2<f32>)> = if !training_samples.is_empty() {
+                training_samples.iter()
+                    .take(100) // Use more samples for better evaluation
+                    .map(|(input, target)| {
+                        (
+                            ndarray::Array2::from_shape_vec((1, input.len()), input.clone()).unwrap(),
+                            ndarray::Array2::from_shape_vec((1, target.len()), target.clone()).unwrap()
+                        )
+                    })
+                    .collect()
+            } else {
+                // Create dummy validation data if no training samples
+                vec![(
+                    ndarray::Array2::from_shape_vec((1, 3), vec![0.0; 3]).unwrap(),
+                    ndarray::Array2::from_shape_vec((1, 1), vec![0.0]).unwrap()
+                )]
+            };
+            
+            // Actually evolve the architecture!
+            if let Err(e) = optimizer.evolve_architecture(&validation_data) {
+                eprintln!("Evolution step failed: {}", e);
+                // Continue with next generation even if this one fails
             }
             
             // Get insights
@@ -240,8 +263,14 @@ impl BackgroundEvolver {
                     if metric.cache_hit { 1.0 } else { 0.0 },
                 ];
                 
-                // Use similarity scores as output
-                Some((input, metric.similarity_scores.clone()))
+                // Use similarity scores as output, or default to single value
+                let output = if !metric.similarity_scores.is_empty() {
+                    metric.similarity_scores.clone()
+                } else {
+                    // Default output based on cache hit
+                    vec![if metric.cache_hit { 1.0 } else { 0.0 }]
+                };
+                Some((input, output))
             })
             .collect()
     }

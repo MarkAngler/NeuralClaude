@@ -267,6 +267,16 @@ impl SelfOptimizingNetwork {
     pub fn get_insights(&self) -> OptimizationInsights {
         self.evolution_controller.get_insights()
     }
+    
+    /// Set the input size for network evolution
+    pub fn set_input_size(&mut self, size: usize) {
+        self.evolution_controller.set_input_size(size);
+    }
+    
+    /// Set the output size for network evolution
+    pub fn set_output_size(&mut self, size: usize) {
+        self.evolution_controller.set_output_size(size);
+    }
 }
 
 /// Insights from the optimization process
