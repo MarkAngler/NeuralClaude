@@ -1,6 +1,6 @@
 {
   "name": "neuralclaude",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Neural LLM Memory MCP Server - High-performance neural memory system for AI assistants",
   "bin": {
     "neuralclaude": "./bin/neuralclaude"
@@ -30,5 +30,5 @@
     "node": ">=14.0.0"
   },
   "os": ["linux"],
-  "cpu": ["arm64"]
+  "cpu": ["x64"]
 }
