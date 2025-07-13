@@ -29,6 +29,9 @@ pub struct AdaptiveConfig {
     // Background processing
     pub evolution_thread_priority: ThreadPriority,
     pub max_evolution_time_minutes: u64,
+    
+    // Auto-apply settings
+    pub auto_apply_threshold: f32,  // Minimum fitness improvement ratio to auto-apply (0 = disabled)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +78,7 @@ impl Default for AdaptiveConfig {
             crossover_rate: 0.8,
             evolution_thread_priority: ThreadPriority::Low,
             max_evolution_time_minutes: 30,
+            auto_apply_threshold: 0.0,  // Disabled by default for safety
         }
     }
 }

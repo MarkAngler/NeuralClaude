@@ -36,7 +36,7 @@ pub struct BackgroundEvolver {
     architecture_rx: Arc<Mutex<mpsc::Receiver<EvolvedArchitecture>>>,
     
     // Current evolution status
-    status: Arc<RwLock<EvolutionStatus>>,
+    pub(crate) status: Arc<RwLock<EvolutionStatus>>,
     
     // Last evolution time
     last_evolution: Arc<RwLock<Option<DateTime<Utc>>>>,
@@ -200,13 +200,15 @@ impl BackgroundEvolver {
             
             // Check for significant improvement
             if generation > 0 && generation % 5 == 0 {
-                let _best_arch = optimizer.get_best_architecture();
+                let best_arch = optimizer.get_best_architecture();
+                let evolved_config = best_arch.to_memory_config();
+                
                 let evolved = EvolvedArchitecture {
                     generation,
                     fitness_score: insights.generation_stats.best_fitness,
-                    memory_config: current_config.clone(), // Simplified for now
-                    architecture_summary: format!("Generation {}", generation),
-                    improvements: vec![format!("Fitness: {:.3}", insights.generation_stats.best_fitness)],
+                    memory_config: evolved_config.clone(),
+                    architecture_summary: best_arch.get_summary(),
+                    improvements: extract_architecture_improvements(&evolved_config, &current_config),
                 };
                 
                 // Send intermediate result
@@ -215,13 +217,16 @@ impl BackgroundEvolver {
         }
         
         // Get final best architecture
+        let best_arch = optimizer.get_best_architecture();
+        let evolved_config = best_arch.to_memory_config();
         let insights = optimizer.get_insights();
+        
         let evolved = EvolvedArchitecture {
             generation: config.generations,
             fitness_score: insights.generation_stats.best_fitness,
-            memory_config: current_config, // Simplified for now
-            architecture_summary: format!("Final generation {}", config.generations),
-            improvements: vec![format!("Final fitness: {:.3}", insights.generation_stats.best_fitness)],
+            memory_config: evolved_config.clone(),
+            architecture_summary: best_arch.get_summary(),
+            improvements: extract_architecture_improvements(&evolved_config, &current_config),
         };
         
         // Send final result
@@ -295,4 +300,39 @@ impl BackgroundEvolver {
     pub async fn get_last_evolution_time(&self) -> Option<DateTime<Utc>> {
         *self.last_evolution.read().await
     }
+}
+
+/// Extract improvements between evolved and original config
+fn extract_architecture_improvements(
+    evolved_config: &MemoryConfig, 
+    original_config: &MemoryConfig
+) -> Vec<String> {
+    let mut improvements = vec![];
+    
+    if evolved_config.embedding_dim != original_config.embedding_dim {
+        improvements.push(format!("Embedding: {} → {}", 
+            original_config.embedding_dim, evolved_config.embedding_dim));
+    }
+    
+    if evolved_config.hidden_dim != original_config.hidden_dim {
+        improvements.push(format!("Hidden: {} → {}", 
+            original_config.hidden_dim, evolved_config.hidden_dim));
+    }
+    
+    if evolved_config.num_layers != original_config.num_layers {
+        improvements.push(format!("Layers: {} → {}", 
+            original_config.num_layers, evolved_config.num_layers));
+    }
+    
+    if evolved_config.num_heads != original_config.num_heads {
+        improvements.push(format!("Heads: {} → {}", 
+            original_config.num_heads, evolved_config.num_heads));
+    }
+    
+    if (evolved_config.dropout_rate - original_config.dropout_rate).abs() > 0.01 {
+        improvements.push(format!("Dropout: {:.2} → {:.2}", 
+            original_config.dropout_rate, evolved_config.dropout_rate));
+    }
+    
+    improvements
 }

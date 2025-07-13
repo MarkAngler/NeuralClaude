@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use crate::nn::{NeuralNetwork, NetworkBuilder, ActivationFunction};
+use crate::memory::MemoryConfig;
 use rand::prelude::*;
 
 /// Represents a complete neural network architecture as a genome
@@ -424,6 +425,81 @@ impl ArchitectureGenome {
         
         self.num_parameters = params;
     }
+    
+    /// Convert evolved genome to memory configuration
+    pub fn to_memory_config(&self) -> MemoryConfig {
+        // Extract embedding dimension from first layer
+        let embedding_dim = self.layers.first()
+            .map(|l| l.size)
+            .unwrap_or(768);
+        
+        // Extract hidden dimension from second layer (or largest layer)
+        let hidden_dim = self.layers.get(1)
+            .map(|l| l.size)
+            .unwrap_or_else(|| {
+                self.layers.iter()
+                    .map(|l| l.size)
+                    .max()
+                    .unwrap_or(2048)
+            });
+        
+        // Count attention layers to determine num_heads
+        let attention_count = self.layers.iter()
+            .filter(|l| matches!(l.layer_type, LayerType::Attention { .. }))
+            .count();
+        
+        // Extract num_heads from first attention layer, or use sensible default
+        let num_heads = self.layers.iter()
+            .find_map(|l| match &l.layer_type {
+                LayerType::Attention { num_heads } => Some(*num_heads),
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                // Default based on embedding dimension
+                match embedding_dim {
+                    d if d >= 768 => 12,
+                    d if d >= 512 => 8,
+                    d if d >= 256 => 4,
+                    _ => 2,
+                }
+            });
+        
+        // Calculate average dropout rate
+        let dropout_rates: Vec<f32> = self.layers.iter()
+            .filter_map(|l| l.dropout_rate)
+            .collect();
+        
+        let dropout_rate = if dropout_rates.is_empty() {
+            0.1 // Default dropout
+        } else {
+            dropout_rates.iter().sum::<f32>() / dropout_rates.len() as f32
+        };
+        
+        // Ensure num_heads divides embedding_dim evenly
+        let num_heads = adjust_num_heads(num_heads, embedding_dim);
+        
+        MemoryConfig {
+            memory_size: 10000,              // Keep stable for memory preservation
+            embedding_dim,                   // From evolved architecture
+            hidden_dim,                      // From evolved architecture
+            num_heads,                       // Based on attention layers
+            num_layers: self.layers.len().max(2), // At least 2 layers
+            dropout_rate: dropout_rate.clamp(0.0, 0.5), // Clamp to reasonable range
+            max_sequence_length: 512,        // Keep stable
+            use_positional_encoding: true,   // Always use for transformers
+        }
+    }
+}
+
+/// Ensure num_heads divides embedding_dim evenly
+fn adjust_num_heads(num_heads: usize, embedding_dim: usize) -> usize {
+    // Find the largest divisor of embedding_dim that's <= num_heads
+    for heads in (1..=num_heads).rev() {
+        if embedding_dim % heads == 0 {
+            return heads;
+        }
+    }
+    1 // Fallback to single head
 }
 
 #[cfg(test)]
@@ -468,3 +544,8 @@ mod tests {
         assert_ne!(offspring.id, parent2.id);
     }
 }
+
+// Include the extended tests
+#[cfg(test)]
+#[path = "genome_tests.rs"]
+mod genome_tests;

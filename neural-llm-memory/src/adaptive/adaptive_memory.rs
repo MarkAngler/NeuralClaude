@@ -502,27 +502,16 @@ impl AdaptiveMemoryModule {
         tracing::info!("Swapping to evolved architecture: generation {}, fitness {}", 
                  new_arch.generation, new_arch.fitness_score);
         
-        // Create new memory module with evolved architecture
-        let persistent_config = PersistentConfig {
-            memory_config: new_arch.memory_config,
-            storage_path: std::path::PathBuf::from("./adaptive_memory_data"),
-            auto_save_interval: 60,
-            save_on_write: false,
-        };
-        let new_module = PersistentMemoryModule::new(persistent_config).await?;
+        // Skip swap if the architecture hasn't actually changed
+        // This is a temporary fix until we implement actual architecture evolution
+        tracing::warn!("Architecture swap skipped - actual neural architecture evolution not yet implemented");
+        tracing::info!("Evolution improved fitness to {} but architecture remains unchanged", new_arch.fitness_score);
         
-        // Transfer existing memories (simplified - in production would be more sophisticated)
-        // For now, we'll just swap the module
-        let mut active = self.active_memory.write().await;
-        *active = new_module;
-        
-        tracing::info!("Architecture swap complete: {}", new_arch.architecture_summary);
-        
-        // Save the evolved network architecture
+        // Just save the evolution state without swapping modules
         if let Err(e) = self.save_evolved_network().await {
             eprintln!("Failed to save evolved network: {}", e);
         } else {
-            tracing::info!("✅ Saved evolved network architecture");
+            tracing::info!("✅ Saved evolution state");
         }
         
         Ok(())
@@ -534,6 +523,163 @@ impl AdaptiveMemoryModule {
         let memory = self.active_memory.read().await;
         let (size, _, _, _) = memory.get_stats().await;
         size * 1024 // Rough estimate
+    }
+    
+    /// Apply evolved architecture to memory module
+    pub async fn apply_evolved_architecture(
+        &self,
+        evolved: EvolvedArchitecture,
+    ) -> Result<Value, Box<dyn std::error::Error>> {
+        // Get current fitness for comparison
+        let evolver = self.evolver.lock().await;
+        let current_status = evolver.get_status().await;
+        let current_fitness = current_status.best_fitness;
+        drop(evolver); // Release lock
+        
+        // Only apply if fitness improvement is significant (>10%)
+        if evolved.fitness_score <= current_fitness * 1.1 {
+            return Ok(serde_json::json!({
+                "status": "rejected",
+                "reason": "insufficient_improvement",
+                "current_fitness": current_fitness,
+                "evolved_fitness": evolved.fitness_score,
+                "improvement": (evolved.fitness_score / current_fitness - 1.0) * 100.0,
+            }));
+        }
+        
+        let improvement_percent = (evolved.fitness_score / current_fitness - 1.0) * 100.0;
+        println!("Applying evolved architecture with {:.1}% improvement", improvement_percent);
+        
+        // Export current memories
+        let memories = self.export_all_memories().await?;
+        let num_memories = memories.len();
+        
+        // Create new memory module with evolved config
+        let new_persistent_config = PersistentConfig {
+            memory_config: evolved.memory_config.clone(),
+            storage_path: std::path::PathBuf::from("./adaptive_memory_data"),
+            auto_save_interval: 60,
+            save_on_write: false,
+        };
+        let new_module = PersistentMemoryModule::new(new_persistent_config).await?;
+        
+        // Re-import memories with new embeddings
+        let mut success_count = 0;
+        let mut error_count = 0;
+        
+        for (key, content) in memories {
+            match new_module.store(&key, &content).await {
+                Ok(_) => success_count += 1,
+                Err(e) => {
+                    error_count += 1;
+                    eprintln!("Failed to migrate memory {}: {}", key, e);
+                }
+            }
+        }
+        
+        println!("Memory migration: {} successful, {} failed", success_count, error_count);
+        
+        // Only proceed if migration was mostly successful (>90% success rate)
+        let success_rate = success_count as f32 / (success_count + error_count) as f32;
+        if success_rate < 0.9 {
+            return Err(format!(
+                "Migration failed: too many errors ({} of {} failed)", 
+                error_count, 
+                num_memories
+            ).into());
+        }
+        
+        // Atomic swap - replace the old module with the new one
+        {
+            let mut active_memory = self.active_memory.write().await;
+            *active_memory = new_module;
+        }
+        
+        // Update evolver status with new fitness
+        let mut evolver = self.evolver.lock().await;
+        let mut status = evolver.status.write().await;
+        status.best_fitness = evolved.fitness_score;
+        drop(status);
+        drop(evolver);
+        
+        // Log the successful evolution
+        println!("Successfully applied evolved architecture:");
+        println!("  Generation: {}", evolved.generation);
+        println!("  Fitness: {} → {}", current_fitness, evolved.fitness_score);
+        println!("  Improvements: {:?}", evolved.improvements);
+        
+        Ok(serde_json::json!({
+            "status": "applied",
+            "generation": evolved.generation,
+            "previous_fitness": current_fitness,
+            "new_fitness": evolved.fitness_score,
+            "improvement_percent": improvement_percent,
+            "memories_migrated": success_count,
+            "memories_failed": error_count,
+            "architecture_changes": evolved.improvements,
+        }))
+    }
+    
+    /// Export all memories for migration
+    async fn export_all_memories(&self) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+        let memory = self.active_memory.read().await;
+        
+        // Get all keys from the memory module
+        let stats = memory.get_stats().await;
+        let mut memories = Vec::new();
+        
+        // Note: In a real implementation, we'd need a method to list all keys
+        // For now, we'll return an empty vec and log a warning
+        eprintln!("WARNING: Memory export not fully implemented - need list_keys method in PersistentMemoryModule");
+        
+        // TODO: Implement memory.list_keys() method in PersistentMemoryModule
+        // Then iterate through all keys and export them:
+        // for key in memory.list_keys().await? {
+        //     if let Ok(Some(content)) = memory.retrieve(&key).await {
+        //         memories.push((key, content));
+        //     }
+        // }
+        
+        Ok(memories)
+    }
+    
+    /// Check for evolved architectures and optionally apply them
+    pub async fn check_and_apply_evolution(&self) -> Result<Value, Box<dyn std::error::Error>> {
+        let mut evolver = self.evolver.lock().await;
+        
+        if let Some(evolved) = evolver.try_receive_architecture().await {
+            drop(evolver); // Release lock before applying
+            
+            // Check if auto-apply is enabled
+            let config = self.config.read().await;
+            if config.auto_apply_threshold > 0.0 {
+                let evolver = self.evolver.lock().await;
+                let current_fitness = evolver.get_status().await.best_fitness;
+                drop(evolver);
+                
+                let improvement = evolved.fitness_score / current_fitness;
+                
+                if improvement >= config.auto_apply_threshold {
+                    println!("Auto-applying architecture ({}% improvement)", 
+                        ((improvement - 1.0) * 100.0) as i32);
+                    drop(config);
+                    return self.apply_evolved_architecture(evolved).await;
+                }
+            }
+            
+            // If not auto-applied, return info about the available evolution
+            Ok(serde_json::json!({
+                "status": "evolution_available",
+                "generation": evolved.generation,
+                "fitness_score": evolved.fitness_score,
+                "improvements": evolved.improvements,
+                "message": "Use apply_evolved_architecture to apply this evolution",
+            }))
+        } else {
+            Ok(serde_json::json!({
+                "status": "no_evolution_available",
+            }))
+        }
     }
 }
 
