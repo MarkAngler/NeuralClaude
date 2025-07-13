@@ -499,7 +499,7 @@ impl AdaptiveMemoryModule {
     }
     
     async fn swap_architecture(&self, new_arch: EvolvedArchitecture) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Swapping to evolved architecture: generation {}, fitness {}", 
+        tracing::info!("Swapping to evolved architecture: generation {}, fitness {}", 
                  new_arch.generation, new_arch.fitness_score);
         
         // Create new memory module with evolved architecture
@@ -516,13 +516,13 @@ impl AdaptiveMemoryModule {
         let mut active = self.active_memory.write().await;
         *active = new_module;
         
-        println!("Architecture swap complete: {}", new_arch.architecture_summary);
+        tracing::info!("Architecture swap complete: {}", new_arch.architecture_summary);
         
         // Save the evolved network architecture
         if let Err(e) = self.save_evolved_network().await {
             eprintln!("Failed to save evolved network: {}", e);
         } else {
-            println!("✅ Saved evolved network architecture");
+            tracing::info!("✅ Saved evolved network architecture");
         }
         
         Ok(())

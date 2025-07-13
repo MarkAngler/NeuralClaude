@@ -94,7 +94,7 @@ impl AdaptiveMemoryModule {
         // The persistent memory module already saves its own state
         // through its auto-save mechanism
         
-        println!("Saved adaptive module state to {:?}", base_path);
+        tracing::info!("Saved adaptive module state to {:?}", base_path);
         Ok(())
     }
     
@@ -122,12 +122,12 @@ impl AdaptiveMemoryModule {
         // Check if we have an evolved network configuration to load
         let evolved_config_path = base_path.join("network_checkpoints/evolved_config.json");
         let memory_config = if evolved_config_path.exists() {
-            println!("🧬 Found evolved network configuration, loading...");
+            tracing::info!("🧬 Found evolved network configuration, loading...");
             match tokio::fs::read_to_string(&evolved_config_path).await {
                 Ok(config_json) => {
                     match serde_json::from_str::<MemoryConfig>(&config_json) {
                         Ok(evolved_config) => {
-                            println!("✅ Successfully loaded evolved network configuration");
+                            tracing::info!("✅ Successfully loaded evolved network configuration");
                             evolved_config
                         }
                         Err(e) => {
@@ -159,13 +159,13 @@ impl AdaptiveMemoryModule {
         
         // Log evolution status if it was running
         if state.evolution_status.is_running {
-            println!("Evolution was running when saved, marking as stopped");
+            tracing::info!("Evolution was running when saved, marking as stopped");
         }
         
-        println!("Loaded adaptive module state from {:?}", base_path);
-        println!("  - Operation count: {}", state.operation_count);
-        println!("  - Metrics restored: {}", state.recent_metrics.len());
-        println!("  - Last evolution: {:?}", state.last_evolution_time);
+        tracing::info!("Loaded adaptive module state from {:?}", base_path);
+        tracing::info!("  - Operation count: {}", state.operation_count);
+        tracing::info!("  - Metrics restored: {}", state.recent_metrics.len());
+        tracing::info!("  - Last evolution: {:?}", state.last_evolution_time);
         
         Ok(module)
     }

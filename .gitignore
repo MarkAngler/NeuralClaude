@@ -200,3 +200,9 @@ neural-llm-memory/neural-llm-memory/test_report.md
 neural-llm-memory/docs/update_delete_operations.md
 neural-llm-memory/adaptive_memory_data/network_checkpoints/timestamp.txt
 neural-llm-memory/test_bulk_operations.py
+errors_in_another_project.md
+errors.md
+stdout_output_analysis.md
+docs/MCP_JSON_ERROR_FIX.md
+docs/mcp-json-parsing-fix-v2.md
+docs/mcp-json-parsing-fix.md

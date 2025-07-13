@@ -21,6 +21,7 @@ use rmcp::{
     service::{RequestContext, RoleServer},
     transport::stdio,
 };
+use tracing::{info, debug, error, warn};
 
 // Helper to convert schema
 fn to_input_schema<T: schemars::JsonSchema>() -> Arc<serde_json::Map<String, Value>> {
@@ -201,14 +202,14 @@ impl NeuralMemoryServer {
         let adaptive_module = if adaptive_enabled {
             // Use new_with_persistence for startup recovery
             let module = if auto_recover {
-                eprintln!("🔄 Attempting to recover adaptive memory state...");
+                info!("🔄 Attempting to recover adaptive memory state...");
                 match AdaptiveMemoryModule::new_with_persistence(base_config.clone(), true).await {
                     Ok(module) => {
-                        eprintln!("✅ Successfully recovered adaptive memory state");
+                        info!("✅ Successfully recovered adaptive memory state");
                         module
                     }
                     Err(e) => {
-                        eprintln!("⚠️  Failed to recover state: {}. Starting fresh.", e);
+                        warn!("⚠️  Failed to recover state: {}. Starting fresh.", e);
                         let adaptive_config = AdaptiveConfig::default();
                         AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
                             .await
@@ -216,7 +217,7 @@ impl NeuralMemoryServer {
                     }
                 }
             } else {
-                eprintln!("📝 Starting with fresh adaptive memory (recovery disabled)");
+                info!("📝 Starting with fresh adaptive memory (recovery disabled)");
                 let adaptive_config = AdaptiveConfig::default();
                 AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
                     .await
@@ -229,10 +230,10 @@ impl NeuralMemoryServer {
         
         // Create consciousness core if enabled
         let consciousness_core = if consciousness_enabled {
-            eprintln!("🧠 Initializing consciousness core...");
+            info!("🧠 Initializing consciousness core...");
             let consciousness_config = ConsciousnessConfig::default();
             let core = ConsciousnessCore::with_config(consciousness_config);
-            eprintln!("✅ Consciousness core initialized successfully");
+            info!("✅ Consciousness core initialized successfully");
             Some(Arc::new(Mutex::new(core)))
         } else {
             None
@@ -857,10 +858,16 @@ impl ServerHandler for NeuralMemoryServer {
     ) -> Result<CallToolResult, rmcp::Error> {
         let params = Value::Object(request.arguments.clone().unwrap_or_default());
         
+        // Enhanced debug logging for all tool calls
+        debug!("📞 Tool call: {} with params: {}", 
+            request.name, 
+            serde_json::to_string_pretty(&params).unwrap_or_else(|_| "invalid json".to_string())
+        );
+        
         // Debug logging for provide_feedback calls
         if request.name == "provide_feedback" {
             tracing::debug!("provide_feedback called with raw params: {:?}", params);
-            eprintln!("🔍 provide_feedback raw params: {}", serde_json::to_string_pretty(&params).unwrap_or_default());
+            debug!("🔍 provide_feedback raw params: {}", serde_json::to_string_pretty(&params).unwrap_or_default());
         }
         
         let result = match request.name.as_ref() {
@@ -953,12 +960,34 @@ impl ServerHandler for NeuralMemoryServer {
         };
         
         match result {
-            Ok(tool_result) => Ok(CallToolResult::success(vec![
-                Content::text(tool_result.0.to_string())
-            ])),
-            Err(tool_error) => Ok(CallToolResult::error(vec![
-                Content::text(format!("Error: {}", tool_error.0))
-            ])),
+            Ok(tool_result) => {
+                // Serialize the JSON value properly instead of converting to string
+                let json_string = serde_json::to_string(&tool_result.0)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize tool result: {}", e);
+                        json!({"error": "Failed to serialize result"}).to_string()
+                    });
+                debug!("✅ Tool {} success response: {}", request.name, json_string);
+                Ok(CallToolResult::success(vec![
+                    Content::text(json_string)
+                ]))
+            },
+            Err(tool_error) => {
+                // Return error as JSON object instead of plain text
+                let error_json = json!({
+                    "error": tool_error.0,
+                    "type": "tool_error"
+                });
+                let json_string = serde_json::to_string(&error_json)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize error: {}", e);
+                        json!({"error": "Failed to serialize error response"}).to_string()
+                    });
+                warn!("❌ Tool {} error response: {}", request.name, json_string);
+                Ok(CallToolResult::error(vec![
+                    Content::text(json_string)
+                ]))
+            },
         }
     }
     
@@ -1038,40 +1067,82 @@ impl ServerHandler for NeuralMemoryServer {
         request: ReadResourceRequestParam,
         _context: RequestContext<RoleServer>
     ) -> Result<ReadResourceResult, rmcp::Error> {
+        debug!("📖 Reading resource: {}", request.uri);
+        
         match request.uri.as_ref() {
             "memory://stats" => {
                 let result = self.memory_stats(MemoryStatsParams {}).await
-                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                    .map_err(|e| {
+                        error!("Failed to get memory stats: {}", e.0);
+                        rmcp::Error::internal_error("Failed to get memory stats", None)
+                    })?;
+                let json_string = serde_json::to_string(&result.0)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize memory stats: {}", e);
+                        json!({"error": "Failed to serialize stats"}).to_string()
+                    });
                 Ok(ReadResourceResult {
-                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                    contents: vec![ResourceContents::text(request.uri.clone(), json_string)],
                 })
             }
             "memory://adaptive/status" if self.adaptive_enabled => {
                 let result = self.adaptive_status(AdaptiveStatusParams { verbose: true }).await
-                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                    .map_err(|e| {
+                        error!("Failed to get adaptive status: {}", e.0);
+                        rmcp::Error::internal_error("Failed to get adaptive status", None)
+                    })?;
+                let json_string = serde_json::to_string(&result.0)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize adaptive status: {}", e);
+                        json!({"error": "Failed to serialize status"}).to_string()
+                    });
                 Ok(ReadResourceResult {
-                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                    contents: vec![ResourceContents::text(request.uri.clone(), json_string)],
                 })
             }
             "memory://adaptive/insights" if self.adaptive_enabled => {
                 let result = self.adaptive_insights(AdaptiveInsightsParams {}).await
-                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                    .map_err(|e| {
+                        error!("Failed to get adaptive insights: {}", e.0);
+                        rmcp::Error::internal_error("Failed to get adaptive insights", None)
+                    })?;
+                let json_string = serde_json::to_string(&result.0)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize adaptive insights: {}", e);
+                        json!({"error": "Failed to serialize insights"}).to_string()
+                    });
                 Ok(ReadResourceResult {
-                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                    contents: vec![ResourceContents::text(request.uri.clone(), json_string)],
                 })
             }
             "consciousness://status" if self.consciousness_enabled => {
                 let result = self.consciousness_status(ConsciousnessStatusParams { detailed: true }).await
-                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                    .map_err(|e| {
+                        error!("Failed to get consciousness status: {}", e.0);
+                        rmcp::Error::internal_error("Failed to get consciousness status", None)
+                    })?;
+                let json_string = serde_json::to_string(&result.0)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize consciousness status: {}", e);
+                        json!({"error": "Failed to serialize status"}).to_string()
+                    });
                 Ok(ReadResourceResult {
-                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                    contents: vec![ResourceContents::text(request.uri.clone(), json_string)],
                 })
             }
             "consciousness://introspection" if self.consciousness_enabled => {
                 let result = self.consciousness_introspect(ConsciousnessIntrospectParams { focus: "cognitive".to_string() }).await
-                    .map_err(|e| rmcp::Error::internal_error("Internal error", None))?;
+                    .map_err(|e| {
+                        error!("Failed to get consciousness introspection: {}", e.0);
+                        rmcp::Error::internal_error("Failed to get consciousness introspection", None)
+                    })?;
+                let json_string = serde_json::to_string(&result.0)
+                    .unwrap_or_else(|e| {
+                        error!("Failed to serialize consciousness introspection: {}", e);
+                        json!({"error": "Failed to serialize introspection"}).to_string()
+                    });
                 Ok(ReadResourceResult {
-                    contents: vec![ResourceContents::text(request.uri.clone(), result.0.to_string())],
+                    contents: vec![ResourceContents::text(request.uri.clone(), json_string)],
                 })
             }
             _ => Err(rmcp::Error::resource_not_found(format!("Unknown resource: {}", request.uri), None)),
@@ -1089,7 +1160,10 @@ async fn main() -> Result<()> {
     // Initialize logging to stderr to avoid interfering with stdio transport
     use tracing_subscriber::{self, EnvFilter};
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
+        .with_env_filter(
+            EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+        )
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .init();
@@ -1107,7 +1181,7 @@ async fn main() -> Result<()> {
                 .parse::<u64>()
                 .unwrap_or(300); // Default to 5 minutes
             
-            eprintln!("🔄 Starting auto-save task (interval: {} seconds)", auto_save_interval);
+            info!("🔄 Starting auto-save task (interval: {} seconds)", auto_save_interval);
             
             let module_clone = Arc::clone(adaptive_module);
             tokio::spawn(async move {
@@ -1120,9 +1194,9 @@ async fn main() -> Result<()> {
                     
                     let module = module_clone.lock().await;
                     if let Err(e) = module.auto_save().await {
-                        eprintln!("❌ Auto-save failed: {}", e);
+                        error!("❌ Auto-save failed: {}", e);
                     } else {
-                        eprintln!("💾 Auto-saved adaptive module state");
+                        debug!("💾 Auto-saved adaptive module state");
                     }
                 }
             });
@@ -1130,12 +1204,12 @@ async fn main() -> Result<()> {
     }
     
     // Only print to stderr AFTER server is ready
-    eprintln!("🚀 neural-memory MCP server ready (using rmcp SDK)");
-    eprintln!("📊 Configuration:");
-    eprintln!("  - Adaptive learning: {}", if server.adaptive_enabled { "enabled" } else { "disabled" });
-    eprintln!("  - Consciousness: {}", if server.consciousness_enabled { "enabled" } else { "disabled" });
-    eprintln!("  - Auto-recovery: {}", std::env::var("NEURAL_MCP_AUTO_RECOVER").unwrap_or_else(|_| "true".to_string()));
-    eprintln!("  - Auto-save interval: {} seconds", std::env::var("NEURAL_MCP_AUTO_SAVE_INTERVAL").unwrap_or_else(|_| "300".to_string()));
+    info!("🚀 neural-memory MCP server ready (using rmcp SDK)");
+    info!("📊 Configuration:");
+    info!("  - Adaptive learning: {}", if server.adaptive_enabled { "enabled" } else { "disabled" });
+    info!("  - Consciousness: {}", if server.consciousness_enabled { "enabled" } else { "disabled" });
+    info!("  - Auto-recovery: {}", std::env::var("NEURAL_MCP_AUTO_RECOVER").unwrap_or_else(|_| "true".to_string()));
+    info!("  - Auto-save interval: {} seconds", std::env::var("NEURAL_MCP_AUTO_SAVE_INTERVAL").unwrap_or_else(|_| "300".to_string()));
     
     // Clone server for shutdown handling
     let server_for_shutdown = server.clone();
@@ -1146,14 +1220,14 @@ async fn main() -> Result<()> {
             tracing::error!("serving error: {:?}", e);
         })?;
     
-    eprintln!("Server connected and running. Waiting for shutdown...");
+    info!("Server connected and running. Waiting for shutdown...");
     
     // Keep the server running
     let shutdown_reason = server_peer.waiting().await?;
-    eprintln!("Server shut down. Reason: {:?}", shutdown_reason);
+    info!("Server shut down. Reason: {:?}", shutdown_reason);
     
     // Shutdown and save before exit
-    eprintln!("💾 Saving memories before shutdown...");
+    info!("💾 Saving memories before shutdown...");
     let memory = server_for_shutdown.memory_module.lock().await;
     memory.shutdown().await.ok();
     
@@ -1161,20 +1235,20 @@ async fn main() -> Result<()> {
         let module = adaptive.lock().await;
         
         // Save complete network state with timestamped checkpoint
-        eprintln!("🧠 Saving neural network weights and state...");
+        info!("🧠 Saving neural network weights and state...");
         if let Err(e) = module.save_shutdown_checkpoint().await {
-            eprintln!("❌ Failed to save shutdown checkpoint: {}", e);
+            error!("❌ Failed to save shutdown checkpoint: {}", e);
             
             // Fall back to basic state save
             if let Err(e) = module.save_state("./adaptive_memory_data").await {
-                eprintln!("❌ Failed to save adaptive state: {}", e);
+                error!("❌ Failed to save adaptive state: {}", e);
             } else {
-                eprintln!("✅ Saved basic adaptive state (without full checkpoint)");
+                info!("✅ Saved basic adaptive state (without full checkpoint)");
             }
         } else {
-            eprintln!("✅ Saved complete neural network checkpoint with weights");
-            eprintln!("📁 Checkpoint location: ./adaptive_memory_data/network_checkpoints/");
-            eprintln!("🔗 Latest checkpoint symlink: ./adaptive_memory_data/network_checkpoints/latest.bin");
+            info!("✅ Saved complete neural network checkpoint with weights");
+            info!("📁 Checkpoint location: ./adaptive_memory_data/network_checkpoints/");
+            info!("🔗 Latest checkpoint symlink: ./adaptive_memory_data/network_checkpoints/latest.bin");
         }
     }
     
