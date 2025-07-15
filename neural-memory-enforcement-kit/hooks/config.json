@@ -1,0 +1,22 @@
+{
+  "neuralMemoryEnforcement": {
+    "enabled": true,
+    "minimumSearchesPerSession": 3,
+    "wisdomCaptureRatio": 0.8,
+    "feedbackRequired": true,
+    "blockOnViolation": true,
+    "reminderFrequency": 5
+  },
+  "enforcement": {
+    "preOperationCheck": true,
+    "postOperationWisdom": true,
+    "sessionSummaryRequired": true,
+    "realTimeMonitoring": true
+  },
+  "metrics": {
+    "trackSearches": true,
+    "trackWisdom": true,
+    "trackFeedback": true,
+    "trackProblems": true
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "env": {
+    "EXAMPLE_VAR": "value"
+  },
+  "permissions": {
+    "allow": ["Bash(git status)"],
+    "deny": ["Bash(rm -rf /)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre/memory-search-enforcer.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post/wisdom-extractor.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/monitoring/realtime-tracker.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session/summary-enforcer.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session/summary-enforcer.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "includeCoAuthoredBy": true
+}
