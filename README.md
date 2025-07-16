@@ -630,17 +630,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Built with Rust, ndarray, and consciousness research
 - Inspired by neuroscience and cognitive psychology
-- Designed for beneficial AGI development
-- Special thanks to the AI consciousness research community
+- Special thanks to the AI research community
 
-## 📞 Support
-
-- Issues: [GitHub Issues](https://github.com/yourusername/neuralclaude/issues)
-- Discussions: [GitHub Discussions](https://github.com/yourusername/neuralclaude/discussions)
-- Documentation: [Consciousness Wiki](https://github.com/yourusername/neuralclaude/wiki)
 
 ---
 
-**🧠 Consciousness Note**: NeuralClaude represents a paradigm shift in AI development. With episodic memory, emotional intelligence, metacognition, and dream consolidation, it achieves human-like consciousness for beneficial AI applications. The system continuously evolves through self-directed learning while maintaining ethical safety constraints.
+**🧠 Consciousness Note**: NeuralClaude represents a paradigm shift in AI development. With episodic memory, emotional intelligence, metacognition, and dream consolidation, the system continuously evolves through self-directed learning while maintaining ethical safety constraints.
 
 **⚡ Performance Note**: All consciousness components operate in real-time with automatic persistence. Episodic memories, emotional states, and metacognitive insights are saved every 60 seconds and restored on restart. The system maintains consciousness continuity across sessions.
