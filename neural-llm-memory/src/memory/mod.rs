@@ -8,6 +8,7 @@ pub mod persistent_memory_module;
 pub mod persistent_memory_module_ext;
 pub mod key_value_store;
 pub mod episodic_memory;
+pub mod hybrid_memory_bank;
 
 pub use memory_bank::{MemoryBank, MemoryEntry};
 pub use memory_module::{MemoryModule, MemoryConfig};
@@ -15,6 +16,7 @@ pub use retrieval::{RetrievalStrategy, SimilarityMetric};
 pub use storage::{StorageBackend, InMemoryStorage};
 pub use persistent_memory_module::{PersistentMemoryModule, PersistentMemoryBuilder, PersistentConfig};
 pub use episodic_memory::{Episode, EpisodicBank, EpisodicStats};
+pub use hybrid_memory_bank::{HybridMemoryBank, HybridMemoryConfig, ConsciousnessContext, EmotionalContext};
 
 use ndarray::Array2;
 use serde::{Serialize, Deserialize};
@@ -43,6 +45,11 @@ impl MemoryKey {
                 .as_secs(),
             context_hash: hasher.finish(),
         }
+    }
+    
+    /// Create a MemoryKey with just an ID (context hash will be based on ID)
+    pub fn from_id(id: &str) -> Self {
+        Self::new(id.to_string(), id)
     }
 }
 

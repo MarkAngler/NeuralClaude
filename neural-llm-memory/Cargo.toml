@@ -42,6 +42,11 @@ schemars = "0.8"
 # Performance optimization
 crossbeam = "0.8"
 
+# Graph dependencies
+petgraph = { version = "0.6", features = ["serde-1"] }
+hnsw = "0.11"
+zstd = "0.13"
+
 # Logging and metrics
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -69,6 +74,10 @@ codegen-units = 1
 name = "mcp_server"
 path = "src/bin/mcp_server.rs"
 
+[[bin]]
+name = "integration_verification"
+path = "integration_verification.rs"
+
 [[example]]
 name = "self_optimizing_demo"
 path = "examples/self_optimizing_demo.rs"
@@ -80,3 +89,7 @@ path = "examples/persistence_demo.rs"
 [[example]]
 name = "continual_learning_demo"
 path = "examples/continual_learning_demo.rs"
+
+[[bench]]
+name = "consciousness_performance"
+harness = false

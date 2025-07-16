@@ -5,6 +5,7 @@ pub mod layers;
 pub mod activation;
 pub mod network;
 pub mod tensor;
+pub mod optimization;
 
 pub use layer::{Layer, LayerType, LinearLayer, Conv1DLayer, DropoutLayer, LayerNormLayer, EmbeddingLayer};
 pub use layers::temporal::{LSTMLayer, GRULayer, MultiHeadAttentionLayer};

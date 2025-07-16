@@ -107,6 +107,11 @@ pub trait Layer: Send + Sync {
     fn get_params(&self) -> Vec<&Array2<f32>>;
     fn get_params_mut(&mut self) -> Vec<&mut Array2<f32>>;
     
+    // Update weights using the gradients stored in this layer
+    fn update_weights_from_self(&mut self, learning_rate: f32) {
+        // Default implementation for layers that don't store gradients
+    }
+    
     // Methods for self-optimizing support
     fn count_parameters(&self) -> usize {
         self.get_params().iter().map(|p| p.len()).sum()
@@ -259,6 +264,19 @@ impl Layer for LinearLayer {
         
         if self.use_bias {
             if let Some(ref grad_b) = gradient.bias {
+                self.bias = &self.bias - learning_rate * grad_b;
+            }
+        }
+    }
+    
+    fn update_weights_from_self(&mut self, learning_rate: f32) {
+        let grad = self.gradient.read();
+        if let Some(ref grad_w) = grad.weights {
+            self.weights = &self.weights - learning_rate * grad_w;
+        }
+        
+        if self.use_bias {
+            if let Some(ref grad_b) = grad.bias {
                 self.bias = &self.bias - learning_rate * grad_b;
             }
         }
@@ -473,6 +491,16 @@ impl Layer for LayerNormLayer {
             self.gamma = &self.gamma - learning_rate * grad_gamma;
         }
         if let Some(ref grad_beta) = gradient.bias {
+            self.beta = &self.beta - learning_rate * grad_beta;
+        }
+    }
+    
+    fn update_weights_from_self(&mut self, learning_rate: f32) {
+        let grad = self.gradient.read();
+        if let Some(ref grad_gamma) = grad.weights {
+            self.gamma = &self.gamma - learning_rate * grad_gamma;
+        }
+        if let Some(ref grad_beta) = grad.bias {
             self.beta = &self.beta - learning_rate * grad_beta;
         }
     }

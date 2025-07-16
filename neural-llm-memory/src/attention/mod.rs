@@ -1,5 +1,8 @@
 //! Attention mechanisms for memory access
 
+mod fusion;
+pub use fusion::{AttentionFusion, AttentionFusionConfig, FusionResult, FusionStats};
+
 use ndarray::{Array2, Array3, Axis};
 use crate::nn::tensor::{Tensor, TensorOps};
 use crate::nn::{WeightInit, LinearLayer, ActivationFunction, Layer};

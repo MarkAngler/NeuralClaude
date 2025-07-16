@@ -7,7 +7,7 @@ use crate::self_optimizing::{
     GenerationStats
 };
 use crate::self_optimizing::genome::{HyperparameterSet, HardwareMetrics};
-use super::layer_state::LayerState;
+use super::layer_state::{LayerState, LayerConfig};
 use super::format::FormatVersion;
 
 /// Complete state of a self-optimizing neural network
@@ -233,16 +233,42 @@ impl NetworkState {
         }
         
         // Check layer compatibility
+        let mut prev_output_size = self.layers[0].output_size();
+        
         for i in 1..self.layers.len() {
-            let prev_output = self.layers[i-1].output_size();
             let curr_input = self.layers[i].input_size();
+            let curr_output = self.layers[i].output_size();
             
-            if prev_output != curr_input {
+            // Skip validation for dropout layers as they preserve input dimensions
+            if matches!(self.layers[i].config, LayerConfig::Dropout { .. }) {
+                // Dropout preserves the previous layer's output size
+                continue;
+            }
+            
+            // Skip validation if previous layer was dropout (it preserves dimensions)
+            if matches!(self.layers[i-1].config, LayerConfig::Dropout { .. }) {
+                // Use the size from the layer before the dropout
+                if i >= 2 {
+                    let actual_prev_output = self.layers[i-2].output_size();
+                    if actual_prev_output != curr_input {
+                        return Err(format!(
+                            "Layer size mismatch: layer {} output ({}) != layer {} input ({})",
+                            i-2, actual_prev_output, i, curr_input
+                        ));
+                    }
+                }
+                prev_output_size = curr_output;
+                continue;
+            }
+            
+            if prev_output_size != curr_input {
                 return Err(format!(
                     "Layer size mismatch: layer {} output ({}) != layer {} input ({})",
-                    i-1, prev_output, i, curr_input
+                    i-1, prev_output_size, i, curr_input
                 ));
             }
+            
+            prev_output_size = curr_output;
         }
         
         Ok(())

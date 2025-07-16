@@ -46,11 +46,9 @@ impl NeuralNetwork {
         let state = self.training_state.read();
         let learning_rate = state.learning_rate;
         
-        for (i, layer) in self.layers.iter_mut().enumerate() {
-            if i < state.gradients.len() {
-                let gradient = state.gradients[i].read();
-                layer.update_weights(&gradient, learning_rate);
-            }
+        for layer in self.layers.iter_mut() {
+            // Each layer has its own gradient stored from backward pass
+            layer.update_weights_from_self(learning_rate);
         }
     }
     
