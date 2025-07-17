@@ -1,0 +1,49 @@
+--- a/src/bin/mcp_server.rs
++++ b/src/bin/mcp_server.rs
+@@ -1,5 +1,6 @@
+ use neural_llm_memory::{
+     AdaptiveMemoryModule, PersistentMemoryModule, 
++    graph::{ConsciousGraph, ConsciousGraphConfig, GraphOperations, TraversalOptions},
+     consciousness::{
+         consciousness_integration::{ConsciousnessIntegration, OptimizedConfig},
+         consciousness_core::{ConsciousInput, ContentType},
+@@ -120,10 +121,29 @@
+     #[schemars(description = "Maximum number of results")]
+     #[serde(default = "default_search_limit")]
+     limit: usize,
++    #[schemars(description = "Include related nodes through graph traversal")]
++    #[serde(default)]
++    include_related: bool,
++    #[schemars(description = "Maximum depth for graph traversal")]
++    #[serde(default = "default_traversal_depth")]
++    traversal_depth: usize,
++    #[schemars(description = "Maximum number of related nodes to return")]
++    #[serde(default = "default_max_related")]
++    max_related: usize,
++    #[schemars(description = "Edge types to follow during traversal")]
++    #[serde(default)]
++    follow_types: Option<Vec<String>>,
+ }
+ 
+ fn default_search_limit() -> usize { 5 }
+ 
++fn default_traversal_depth() -> usize { 2 }
++
++fn default_max_related() -> usize { 10 }
++
++#[derive(Debug, Serialize)]
++struct EnhancedSearchResult {
++    query: String,
++    operation_id: String,
++    matches: Vec<MatchResult>,
++}
++
++#[derive(Debug, Serialize)]
++struct MatchResult {
++    key: String,
++    score: f32,
++    match_type: String,
++    relationship: Option<String>,
++    path_from: Option<String>,
++    distance: Option<usize>,
++}

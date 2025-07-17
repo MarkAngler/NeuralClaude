@@ -4,6 +4,7 @@ pub mod background_evolver;
 pub mod adaptive_config;
 pub mod feedback;
 pub mod adaptive_memory_ext;
+pub mod enhanced_search;
 
 #[cfg(test)]
 mod config_test;
@@ -17,3 +18,4 @@ pub use background_evolver::{BackgroundEvolver, EvolutionStatus, EvolvedArchitec
 pub use adaptive_config::AdaptiveConfig;
 pub use feedback::{OperationFeedback, FeedbackType, calculate_fitness_with_feedback};
 pub use adaptive_memory_ext::{AdaptiveModuleState, start_auto_save_task};
+pub use enhanced_search::{enhanced_search, EnhancedSearchResult, MatchResult, MatchType};

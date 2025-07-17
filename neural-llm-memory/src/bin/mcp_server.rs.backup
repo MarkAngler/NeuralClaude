@@ -3,8 +3,7 @@
 
 use anyhow::Result;
 use neural_llm_memory::{PersistentMemoryModule, PersistentMemoryBuilder, MemoryConfig};
-use neural_llm_memory::adaptive::{AdaptiveMemoryModule, AdaptiveConfig, enhanced_search, MatchType};
-use neural_llm_memory::graph::{ConsciousGraph, ConsciousGraphConfig};
+use neural_llm_memory::adaptive::{AdaptiveMemoryModule, AdaptiveConfig};
 use neural_llm_memory::consciousness::{ConsciousnessCore, ConsciousnessConfig, ConsciousInput, ContentType, IntrospectiveFocus, ReflectionFocus};
 use ndarray::Array2;
 use std::sync::Arc;
@@ -67,23 +66,9 @@ struct SearchMemoryParams {
     #[schemars(description = "Maximum number of results")]
     #[serde(default = "default_search_limit")]
     limit: usize,
-    #[schemars(description = "Include related nodes through graph traversal")]
-    #[serde(default)]
-    include_related: bool,
-    #[schemars(description = "Maximum depth for graph traversal")]
-    #[serde(default = "default_traversal_depth")]
-    traversal_depth: usize,
-    #[schemars(description = "Maximum number of related nodes to return")]
-    #[serde(default = "default_max_related")]
-    max_related: usize,
-    #[schemars(description = "Edge types to follow during traversal")]
-    #[serde(default)]
-    follow_types: Option<Vec<String>>,
 }
 
 fn default_search_limit() -> usize { 5 }
-fn default_traversal_depth() -> usize { 2 }
-fn default_max_related() -> usize { 10 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct MemoryStatsParams {}
@@ -192,7 +177,6 @@ struct NeuralMemoryServer {
     adaptive_enabled: bool,
     consciousness_core: Option<Arc<Mutex<ConsciousnessCore>>>,
     consciousness_enabled: bool,
-    graph: Option<Arc<ConsciousGraph>>,
 }
 
 impl NeuralMemoryServer {
@@ -218,14 +202,14 @@ impl NeuralMemoryServer {
         let adaptive_module = if adaptive_enabled {
             // Use new_with_persistence for startup recovery
             let module = if auto_recover {
-                eprintln!("🔄 Attempting to recover adaptive memory state...");
+                info!("🔄 Attempting to recover adaptive memory state...");
                 match AdaptiveMemoryModule::new_with_persistence(base_config.clone(), true).await {
                     Ok(module) => {
-                        eprintln!("✅ Successfully recovered adaptive memory state");
+                        info!("✅ Successfully recovered adaptive memory state");
                         module
                     }
                     Err(e) => {
-                        eprintln!("⚠️  Failed to recover state: {}. Starting fresh.", e);
+                        warn!("⚠️  Failed to recover state: {}. Starting fresh.", e);
                         let adaptive_config = AdaptiveConfig::default();
                         AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
                             .await
@@ -233,7 +217,7 @@ impl NeuralMemoryServer {
                     }
                 }
             } else {
-                eprintln!("📝 Starting with fresh adaptive memory (recovery disabled)");
+                info!("📝 Starting with fresh adaptive memory (recovery disabled)");
                 let adaptive_config = AdaptiveConfig::default();
                 AdaptiveMemoryModule::with_config(base_config.clone(), adaptive_config)
                     .await
@@ -246,10 +230,10 @@ impl NeuralMemoryServer {
         
         // Create consciousness core if enabled
         let consciousness_core = if consciousness_enabled {
-            eprintln!("🧠 Initializing consciousness core...");
+            info!("🧠 Initializing consciousness core...");
             let consciousness_config = ConsciousnessConfig::default();
             let core = ConsciousnessCore::with_config(consciousness_config);
-            eprintln!("✅ Consciousness core initialized successfully");
+            info!("✅ Consciousness core initialized successfully");
             Some(Arc::new(Mutex::new(core)))
         } else {
             None
@@ -263,30 +247,12 @@ impl NeuralMemoryServer {
             .build()
             .await?;
         
-        // Initialize graph for enhanced search
-        let graph = if adaptive_enabled {
-            eprintln!("🔗 Initializing knowledge graph...");
-            match ConsciousGraph::new_with_config(ConsciousGraphConfig::default()) {
-                Ok(g) => {
-                    eprintln!("✅ Knowledge graph initialized successfully");
-                    Some(Arc::new(g))
-                },
-                Err(e) => {
-                    eprintln!("⚠️  Failed to initialize graph: {}. Enhanced search disabled.", e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
-        
         Ok(Self {
             memory_module: Arc::new(Mutex::new(memory_module)),
             adaptive_module,
             adaptive_enabled,
             consciousness_core,
             consciousness_enabled,
-            graph,
         })
     }
     
@@ -360,80 +326,28 @@ impl NeuralMemoryServer {
         params: SearchMemoryParams
     ) -> Result<ToolResult, ToolError> {
         if self.adaptive_enabled {
+            // Use adaptive module
             let module = self.adaptive_module.as_ref().unwrap().lock().await;
+            let (results, operation_id) = module.search(&params.query, params.limit).await
+                .map_err(|e| ToolError(e.to_string()))?;
             
-            // Check if enhanced search is requested
-            if params.include_related && self.graph.is_some() {
-                // Use enhanced search with graph traversal
-                let graph = self.graph.as_ref().unwrap();
-                let result = enhanced_search(
-                    &*module,
-                    &graph,
-                    &params.query,
-                    params.limit,
-                    params.include_related,
-                    params.traversal_depth,
-                    params.max_related,
-                    params.follow_types,
-                ).await.map_err(|e| ToolError(e.to_string()))?;
-                
-                // Format matches with relationship info
-                let matches: Vec<_> = result.matches.into_iter()
-                    .map(|m| {
-                        let mut match_obj = json!({
-                            "key": m.key,
-                            "score": m.score,
-                            "match_type": match m.match_type {
-                                MatchType::Direct => "direct",
-                                MatchType::Related => "related",
-                            },
-                            "distance": m.distance,
-                        });
-                        
-                        if let Some(rel) = m.relationship {
-                            match_obj["relationship"] = json!({
-                                "type": rel.edge_type,
-                                "from": rel.path_from,
-                                "description": rel.description,
-                            });
-                        }
-                        
-                        match_obj
-                    })
-                    .collect();
-                
-                Ok(ToolResult(json!({
-                    "query": result.query,
-                    "matches": matches,
-                    "operation_id": result.operation_id,
-                    "graph_traversal": true,
-                })))
-            } else {
-                // Regular search without graph traversal
-                let (results, operation_id) = module.search(&params.query, params.limit).await
-                    .map_err(|e| ToolError(e.to_string()))?;
-                
-                let matches: Vec<_> = results.into_iter()
-                    .map(|(key, score)| json!({
-                        "key": key,
-                        "score": score,
-                        "match_type": "direct",
-                    }))
-                    .collect();
-                
-                Ok(ToolResult(json!({
-                    "query": params.query,
-                    "matches": matches,
-                    "operation_id": operation_id,
-                    "graph_traversal": false,
-                })))
-            }
+            let matches: Vec<_> = results.into_iter()
+                .map(|(key, score)| json!({
+                    "key": key,
+                    "score": score
+                }))
+                .collect();
+            
+            Ok(ToolResult(json!({
+                "query": params.query,
+                "matches": matches,
+                "operation_id": operation_id
+            })))
         } else {
             // Use regular module - simplified search
             Ok(ToolResult(json!({
                 "query": params.query,
-                "matches": [],
-                "graph_traversal": false,
+                "matches": []
             })))
         }
     }
