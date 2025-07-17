@@ -23,6 +23,7 @@ use rmcp::{
     transport::stdio,
 };
 use tracing::{info, debug, error, warn};
+use chrono;
 
 // Helper to convert schema
 fn to_input_schema<T: schemars::JsonSchema>() -> Arc<serde_json::Map<String, Value>> {
@@ -174,6 +175,13 @@ struct ConsciousnessInsightParams {
 struct ConsciousnessEvolveParams {
     #[schemars(description = "Target capability to evolve")]
     target_capability: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct DreamConsolidateParams {
+    #[schemars(description = "Force consolidation even if not due")]
+    #[serde(default)]
+    force: bool,
 }
 
 // Tool result wrapper for consistent output
@@ -791,6 +799,80 @@ impl NeuralMemoryServer {
         
         Ok(ToolResult(response))
     }
+    
+    async fn dream_consolidate(
+        &self,
+        params: DreamConsolidateParams
+    ) -> Result<ToolResult, ToolError> {
+        if !self.consciousness_enabled {
+            return Err(ToolError("Consciousness not enabled".to_string()));
+        }
+        
+        if self.graph.is_none() {
+            return Err(ToolError("Graph not initialized".to_string()));
+        }
+        
+        // Access the graph to trigger consolidation
+        let graph = self.graph.as_ref().unwrap();
+        
+        let start_time = std::time::Instant::now();
+        
+        let response = if params.force {
+            // Trigger actual dream consolidation
+            match graph.dream_consolidation() {
+                Ok(patterns_processed) => {
+                    let duration_ms = start_time.elapsed().as_millis();
+                    
+                    json!({
+                        "status": "completed",
+                        "message": "Dream consolidation successfully executed",
+                        "results": {
+                            "patterns_processed": patterns_processed,
+                            "duration_ms": duration_ms,
+                            "relationships_created": "Temporal and semantic connections established"
+                        },
+                        "phases_completed": [
+                            "Pattern extraction from last 24 hours",
+                            "Temporal pattern consolidation",
+                            "Memory relationship inference",
+                            "Graph structure optimization"
+                        ],
+                        "timestamp": chrono::Utc::now().to_rfc3339()
+                    })
+                },
+                Err(e) => {
+                    json!({
+                        "status": "error",
+                        "message": "Dream consolidation failed",
+                        "error": e.to_string(),
+                        "timestamp": chrono::Utc::now().to_rfc3339()
+                    })
+                }
+            }
+        } else {
+            // Return status without triggering
+            let stats = graph.get_stats();
+            json!({
+                "status": "status_check",
+                "message": "Dream consolidation status retrieved",
+                "graph_stats": {
+                    "node_count": stats.node_count,
+                    "edge_count": stats.edge_count,
+                    "pattern_extractions": stats.pattern_extractions,
+                    "relationship_inferences": stats.relationship_inferences
+                },
+                "consolidation_info": {
+                    "next_automatic": "Every 5 minutes during idle periods",
+                    "trigger_threshold": "Activity < 0.3",
+                    "analysis_window": "24 hours"
+                },
+                "note": "Use force=true to trigger consolidation immediately",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })
+        };
+        
+        Ok(ToolResult(response))
+    }
 }
 
 // Implement ServerHandler using the rmcp SDK
@@ -931,6 +1013,12 @@ impl ServerHandler for NeuralMemoryServer {
                     input_schema: to_input_schema::<ConsciousnessEvolveParams>(),
                     annotations: None,
                 },
+                Tool {
+                    name: "dream_consolidate".into(),
+                    description: Some("Manually trigger dream consolidation to discover patterns and create relationships between memories".into()),
+                    input_schema: to_input_schema::<DreamConsolidateParams>(),
+                    annotations: None,
+                },
             ]);
         }
         
@@ -1041,6 +1129,11 @@ impl ServerHandler for NeuralMemoryServer {
                 let params: ConsciousnessEvolveParams = serde_json::from_value(params)
                     .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
                 self.consciousness_evolve(params).await
+            }
+            "dream_consolidate" if self.consciousness_enabled => {
+                let params: DreamConsolidateParams = serde_json::from_value(params)
+                    .map_err(|e| rmcp::Error::invalid_params(format!("Invalid params: {}", e), None))?;
+                self.dream_consolidate(params).await
             }
             _ => return Err(rmcp::Error::invalid_request("Unknown tool", None)),
         };
