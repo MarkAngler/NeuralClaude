@@ -819,17 +819,17 @@ impl NeuralMemoryServer {
         
         let response = if params.force {
             // Trigger actual dream consolidation
-            match graph.dream_consolidation() {
-                Ok(patterns_processed) => {
+            match graph.clone().dream_consolidation().await {
+                Ok(relationships_created) => {
                     let duration_ms = start_time.elapsed().as_millis();
                     
                     json!({
                         "status": "completed",
                         "message": "Dream consolidation successfully executed",
                         "results": {
-                            "patterns_processed": patterns_processed,
+                            "relationships_created": relationships_created,
                             "duration_ms": duration_ms,
-                            "relationships_created": "Temporal and semantic connections established"
+                            "description": format!("Created {} new graph relationships", relationships_created)
                         },
                         "phases_completed": [
                             "Pattern extraction from last 24 hours",

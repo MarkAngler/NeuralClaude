@@ -2,15 +2,19 @@
 
 use crate::graph::core::{NodeId, ConsciousNode, NodeType, PatternType};
 use crate::graph::storage::GraphStorage;
+use crate::graph::ConsciousGraph;
 use anyhow::{Result, anyhow};
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
+use std::sync::Arc;
+use chrono::{Utc, Duration};
 
 /// Pattern extractor for discovering patterns in the graph
 pub struct PatternExtractor {
     pub min_frequency: usize,
     pub confidence_threshold: f32,
     pub pattern_types: Vec<PatternTypeConfig>,
+    graph: Option<Arc<ConsciousGraph>>,
 }
 
 /// Configuration for pattern types
@@ -60,41 +64,250 @@ impl PatternExtractor {
                 PatternTypeConfig::Semantic,
                 PatternTypeConfig::Structural,
             ],
+            graph: None,
+        }
+    }
+    
+    pub fn with_graph(graph: Arc<ConsciousGraph>) -> Self {
+        Self {
+            min_frequency: 2,
+            confidence_threshold: 0.6,
+            pattern_types: vec![
+                PatternTypeConfig::Temporal,
+                PatternTypeConfig::Semantic,
+                PatternTypeConfig::Structural,
+            ],
+            graph: Some(graph),
         }
     }
     
     pub fn extract_temporal_patterns_by_hours(&self, hours: i64) -> Result<Vec<ExtractedPattern>> {
-        // Simplified implementation for temporal patterns
-        let mut patterns = Vec::new();
+        let graph = self.graph.as_ref()
+            .ok_or_else(|| anyhow!("Graph not initialized"))?;
         
-        // Example temporal pattern
-        patterns.push(ExtractedPattern {
-            pattern_type: "temporal".to_string(),
-            description: format!("Activity pattern in last {} hours", hours),
-            frequency: 1,
-            confidence: 0.7,
-            examples: vec!["example_node".to_string()],
-            properties: HashMap::new(),
-        });
+        let since = Utc::now() - Duration::hours(hours);
+        let recent_nodes = graph.storage.get_nodes_since(since)?;
+        
+        // Group by temporal proximity
+        let temporal_groups = self.group_by_temporal_proximity(recent_nodes);
+        
+        // Create patterns with actual node IDs
+        let mut patterns = Vec::new();
+        for (group_key, nodes) in temporal_groups {
+            if nodes.len() >= self.min_frequency {
+                patterns.push(ExtractedPattern {
+                    pattern_type: "temporal".to_string(),
+                    description: format!("Temporal cluster: {}", group_key),
+                    frequency: nodes.len(),
+                    confidence: self.calculate_temporal_confidence(&nodes),
+                    examples: nodes.iter().map(|(id, _)| id.clone()).collect(),
+                    properties: self.extract_temporal_properties(&nodes),
+                });
+            }
+        }
         
         Ok(patterns)
     }
     
-    pub fn extract_contextual_patterns(&self, context: &str) -> Result<Vec<ExtractedPattern>> {
-        // Simplified implementation for contextual patterns
-        let mut patterns = Vec::new();
+    /// Group nodes by temporal proximity
+    fn group_by_temporal_proximity(&self, nodes: Vec<(NodeId, ConsciousNode)>) -> HashMap<String, Vec<(NodeId, ConsciousNode)>> {
+        let mut groups: HashMap<String, Vec<(NodeId, ConsciousNode)>> = HashMap::new();
         
-        // Example contextual pattern
-        patterns.push(ExtractedPattern {
-            pattern_type: "contextual".to_string(),
-            description: format!("Pattern related to '{}'", context),
-            frequency: 1,
-            confidence: 0.6,
-            examples: vec!["example_node".to_string()],
-            properties: HashMap::new(),
-        });
+        // Group nodes that were created within 5 minute windows
+        for (node_id, node) in nodes {
+            let time_bucket = node.created_at.timestamp() / 300; // 5-minute buckets
+            let group_key = format!("bucket_{}", time_bucket);
+            groups.entry(group_key)
+                .or_insert_with(Vec::new)
+                .push((node_id, node));
+        }
+        
+        groups
+    }
+    
+    /// Calculate temporal confidence based on node characteristics
+    fn calculate_temporal_confidence(&self, nodes: &[(NodeId, ConsciousNode)]) -> f32 {
+        if nodes.is_empty() {
+            return 0.0;
+        }
+        
+        // Calculate confidence based on:
+        // 1. Number of nodes
+        // 2. Time consistency (how close in time they are)
+        // 3. Type consistency
+        
+        let mut time_deltas = Vec::new();
+        for window in nodes.windows(2) {
+            let delta = window[1].1.created_at.timestamp() - window[0].1.created_at.timestamp();
+            time_deltas.push(delta.abs());
+        }
+        
+        let avg_delta = if !time_deltas.is_empty() {
+            time_deltas.iter().sum::<i64>() as f32 / time_deltas.len() as f32
+        } else {
+            0.0
+        };
+        
+        // Lower time delta = higher confidence
+        let time_confidence = 1.0 / (1.0 + avg_delta / 300.0); // Normalize by 5 minutes
+        
+        // Node count confidence
+        let count_confidence = (nodes.len() as f32 / 10.0).min(1.0);
+        
+        // Combined confidence
+        (time_confidence * 0.7 + count_confidence * 0.3).min(1.0)
+    }
+    
+    /// Extract properties from temporal node groups
+    fn extract_temporal_properties(&self, nodes: &[(NodeId, ConsciousNode)]) -> HashMap<String, serde_json::Value> {
+        let mut properties = HashMap::new();
+        
+        if nodes.is_empty() {
+            return properties;
+        }
+        
+        // Time span
+        let first_time = nodes.first().unwrap().1.created_at;
+        let last_time = nodes.last().unwrap().1.created_at;
+        let span_seconds = (last_time - first_time).num_seconds();
+        
+        properties.insert("time_span_seconds".to_string(), 
+                         serde_json::Value::Number(serde_json::Number::from(span_seconds)));
+        
+        // Node types distribution
+        let mut type_counts: HashMap<String, usize> = HashMap::new();
+        for (_, node) in nodes {
+            let type_name = format!("{:?}", node.node_type);
+            *type_counts.entry(type_name).or_insert(0) += 1;
+        }
+        
+        properties.insert("node_types".to_string(), 
+                         serde_json::to_value(type_counts).unwrap_or(serde_json::Value::Null));
+        
+        // Average consciousness level
+        let avg_consciousness: f32 = nodes.iter()
+            .map(|(_, node)| node.awareness.level)
+            .sum::<f32>() / nodes.len() as f32;
+        
+        properties.insert("avg_consciousness".to_string(),
+                         serde_json::Value::Number(serde_json::Number::from_f64(avg_consciousness as f64).unwrap()));
+        
+        properties
+    }
+    
+    pub fn extract_contextual_patterns(&self, context: &str) -> Result<Vec<ExtractedPattern>> {
+        // Return empty patterns for now - in production this would analyze contextual patterns
+        let patterns = Vec::new();
+        
+        // Note: This is a simplified implementation. In production, this would:
+        // 1. Search for nodes matching the context
+        // 2. Analyze relationships between context-relevant nodes
+        // 3. Identify common patterns in how context appears
+        // 4. Calculate confidence based on pattern strength
         
         Ok(patterns)
+    }
+    
+    /// Extract semantic patterns from recent nodes
+    pub fn extract_semantic_patterns_from_recent(&self, hours: i64) -> Result<Vec<ExtractedPattern>> {
+        let graph = self.graph.as_ref()
+            .ok_or_else(|| anyhow!("Graph not initialized"))?;
+        
+        let since = Utc::now() - Duration::hours(hours);
+        let recent_nodes = graph.storage.get_nodes_since(since)?;
+        
+        // Cluster by semantic similarity using embeddings
+        let clusters = self.cluster_by_similarity(recent_nodes)?;
+        
+        // Create patterns from clusters
+        let mut patterns = Vec::new();
+        for (cluster_id, node_ids) in clusters {
+            if node_ids.len() >= self.min_frequency {
+                patterns.push(ExtractedPattern {
+                    pattern_type: "semantic".to_string(),
+                    description: format!("Semantic cluster {}", cluster_id),
+                    frequency: node_ids.len(),
+                    confidence: 0.85,
+                    examples: node_ids,
+                    properties: HashMap::new(),
+                });
+            }
+        }
+        
+        Ok(patterns)
+    }
+    
+    /// Cluster nodes by embedding similarity
+    fn cluster_by_similarity(&self, nodes: Vec<(NodeId, ConsciousNode)>) -> Result<HashMap<usize, Vec<NodeId>>> {
+        if nodes.is_empty() {
+            return Ok(HashMap::new());
+        }
+        
+        let mut clusters: HashMap<usize, Vec<NodeId>> = HashMap::new();
+        let similarity_threshold = 0.8;
+        let mut cluster_id = 0;
+        
+        // Simple clustering: for each node, find similar nodes
+        for i in 0..nodes.len() {
+            let (ref node_id_i, ref node_i) = nodes[i];
+            
+            // Skip if already assigned to a cluster
+            let already_clustered = clusters.values()
+                .any(|cluster| cluster.contains(node_id_i));
+            if already_clustered {
+                continue;
+            }
+            
+            // Start new cluster
+            let mut current_cluster = vec![node_id_i.clone()];
+            
+            // Find similar nodes
+            for j in i+1..nodes.len() {
+                let (ref node_id_j, ref node_j) = nodes[j];
+                
+                // Skip if already in a cluster
+                let already_clustered_j = clusters.values()
+                    .any(|cluster| cluster.contains(node_id_j));
+                if already_clustered_j {
+                    continue;
+                }
+                
+                // Calculate cosine similarity
+                let similarity = self.cosine_similarity(&node_i.embeddings, &node_j.embeddings);
+                if similarity > similarity_threshold {
+                    current_cluster.push(node_id_j.clone());
+                }
+            }
+            
+            // Add cluster if it has multiple nodes
+            if current_cluster.len() >= self.min_frequency {
+                clusters.insert(cluster_id, current_cluster);
+                cluster_id += 1;
+            }
+        }
+        
+        Ok(clusters)
+    }
+    
+    /// Calculate cosine similarity between two embedding vectors
+    fn cosine_similarity(&self, a: &[f32], b: &[f32]) -> f32 {
+        if a.len() != b.len() || a.is_empty() {
+            return 0.0;
+        }
+        
+        let dot_product: f32 = a.iter()
+            .zip(b.iter())
+            .map(|(x, y)| x * y)
+            .sum();
+        
+        let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+        
+        if norm_a == 0.0 || norm_b == 0.0 {
+            return 0.0;
+        }
+        
+        (dot_product / (norm_a * norm_b)).min(1.0).max(-1.0)
     }
 }
 
@@ -108,6 +321,7 @@ impl Default for PatternExtractor {
                 PatternTypeConfig::Temporal,
                 PatternTypeConfig::Semantic,
             ],
+            graph: None,
         }
     }
 }
@@ -215,7 +429,7 @@ impl PatternExtractor {
                     pattern_type: "temporal".to_string(),
                     description: format!("Temporal sequence: {}", sequence_type),
                     frequency: instances.len(),
-                    confidence: self.calculate_temporal_confidence(&instances),
+                    confidence: self.calculate_temporal_confidence_legacy(&instances),
                     examples: instances.into_iter().take(5).collect(),
                     properties: HashMap::new(),
                 };
@@ -421,8 +635,8 @@ impl PatternExtractor {
         base_confidence.min(1.0)
     }
     
-    /// Calculate confidence for temporal patterns
-    fn calculate_temporal_confidence(&self, instances: &[NodeId]) -> f32 {
+    /// Calculate confidence for temporal patterns (for legacy method)
+    fn calculate_temporal_confidence_legacy(&self, instances: &[NodeId]) -> f32 {
         // Simple confidence based on instance count
         let base_confidence = (instances.len() as f32) / 10.0;
         base_confidence.min(1.0)

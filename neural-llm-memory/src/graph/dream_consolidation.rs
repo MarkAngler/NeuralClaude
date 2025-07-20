@@ -36,6 +36,14 @@ pub struct DreamConfig {
     pub idle_activity_threshold: f32,
 }
 
+/// Result of a consolidation process
+#[derive(Debug)]
+pub struct ConsolidationResult {
+    pub patterns_found: usize,
+    pub relationships_created: usize,
+    pub insights_generated: usize,
+}
+
 impl Default for DreamConfig {
     fn default() -> Self {
         Self {
@@ -104,13 +112,75 @@ impl DreamConsolidation {
     /// Create a new DreamConsolidation processor
     pub fn new(graph: Arc<ConsciousGraph>, config: DreamConfig) -> Self {
         Self {
-            graph,
-            pattern_extractor: Arc::new(PatternExtractor::new()),
+            graph: graph.clone(),
+            pattern_extractor: Arc::new(PatternExtractor::with_graph(graph)),
             config,
             stats: Arc::new(RwLock::new(ConsolidationStats::default())),
             task_handle: None,
             shutdown_flag: Arc::new(RwLock::new(false)),
         }
+    }
+    
+    /// Create a new DreamConsolidation processor with the graph
+    pub fn new_from_graph(graph: Arc<ConsciousGraph>) -> Self {
+        Self::new(graph, DreamConfig::default())
+    }
+    
+    /// Process consolidation and return results
+    pub async fn process(&self) -> Result<ConsolidationResult> {
+        // Extract temporal patterns
+        let temporal_patterns = self.pattern_extractor.extract_temporal_patterns_by_hours(
+            self.config.analysis_window_hours
+        )?;
+        
+        // Extract semantic patterns
+        let semantic_patterns = self.pattern_extractor.extract_semantic_patterns_from_recent(
+            self.config.analysis_window_hours
+        )?;
+        
+        // Combine all patterns
+        let mut patterns = temporal_patterns;
+        patterns.extend(semantic_patterns);
+        
+        let patterns_found = patterns.len();
+        let mut relationships_created = 0;
+        let mut insights_generated = 0;
+        
+        // Log pattern extraction results for debugging
+        println!("Dream consolidation: found {} patterns", patterns_found);
+        for (i, pattern) in patterns.iter().enumerate() {
+            println!("  Pattern {}: type={}, examples={}, confidence={}", 
+                     i, pattern.pattern_type, pattern.examples.len(), pattern.confidence);
+        }
+        
+        // Create edges based on patterns
+        if patterns_found > 0 {
+            relationships_created = self.create_pattern_edges(&patterns).await?;
+        }
+        
+        // Generate insights from patterns
+        for pattern in patterns.iter().take(self.config.max_insights_per_cycle) {
+            if pattern.confidence >= self.config.insight_confidence_threshold {
+                if let Some(insight) = Self::generate_insight_from_pattern(pattern, &self.graph).await? {
+                    Self::store_insight_as_node(&insight, &self.graph)?;
+                    insights_generated += 1;
+                    
+                    // Each insight creates edges to related memories
+                    relationships_created += insight.related_memories.len();
+                }
+            }
+        }
+        
+        // Update stats
+        let mut stats = self.stats.write();
+        stats.patterns_extracted += patterns_found as u64;
+        stats.insights_generated += insights_generated as u64;
+        
+        Ok(ConsolidationResult {
+            patterns_found,
+            relationships_created,
+            insights_generated,
+        })
     }
     
     /// Start the background consolidation process
@@ -267,33 +337,112 @@ impl DreamConsolidation {
         Ok(Some(insight))
     }
     
+    /// Create edges between related memories based on patterns
+    async fn create_pattern_edges(&self, patterns: &[ExtractedPattern]) -> Result<usize> {
+        let mut edges_created = 0;
+        
+        for pattern in patterns {
+            match pattern.pattern_type.as_str() {
+                "temporal" => {
+                    // Create sequential edges for temporal patterns
+                    edges_created += self.create_temporal_edges(pattern).await?;
+                }
+                "semantic" => {
+                    // Create bidirectional edges for semantic clusters
+                    edges_created += self.create_semantic_edges(pattern).await?;
+                }
+                _ => {
+                    // For other patterns, create derived edges
+                    edges_created += self.create_derived_edges(pattern).await?;
+                }
+            }
+        }
+        
+        Ok(edges_created)
+    }
+    
+    /// Create temporal edges between sequential memories
+    async fn create_temporal_edges(&self, pattern: &ExtractedPattern) -> Result<usize> {
+        let mut edges_created = 0;
+        
+        // Create edges between consecutive nodes in the pattern
+        for window in pattern.examples.windows(2) {
+            let source = &window[0];
+            let target = &window[1];
+            
+            // Calculate time delta if available from properties
+            let delta_ms = pattern.properties.get("time_span_seconds")
+                .and_then(|v| v.as_i64())
+                .map(|secs| secs * 1000)
+                .unwrap_or(0);
+            
+            let edge = ConsciousEdge::new_weighted(
+                source.clone(),
+                target.clone(),
+                EdgeType::Temporal { delta_ms },
+                pattern.confidence,
+            );
+            
+            if let Ok(_) = self.graph.add_edge(edge) {
+                edges_created += 1;
+            }
+        }
+        
+        Ok(edges_created)
+    }
+    
+    /// Create semantic edges between related memories
+    async fn create_semantic_edges(&self, pattern: &ExtractedPattern) -> Result<usize> {
+        let mut edges_created = 0;
+        
+        // Create edges between all pairs in the semantic cluster
+        for i in 0..pattern.examples.len() {
+            for j in i+1..pattern.examples.len() {
+                let edge = ConsciousEdge::new_weighted(
+                    pattern.examples[i].clone(),
+                    pattern.examples[j].clone(),
+                    EdgeType::Semantic,
+                    pattern.confidence,
+                );
+                
+                if let Ok(_) = self.graph.add_edge(edge) {
+                    edges_created += 1;
+                }
+            }
+        }
+        
+        Ok(edges_created)
+    }
+    
+    /// Create derived edges for other pattern types
+    async fn create_derived_edges(&self, pattern: &ExtractedPattern) -> Result<usize> {
+        let mut edges_created = 0;
+        
+        // Create a star topology: first node connects to all others
+        if let Some(hub) = pattern.examples.first() {
+            for target in pattern.examples.iter().skip(1) {
+                let edge = ConsciousEdge::new_weighted(
+                    hub.clone(),
+                    target.clone(),
+                    EdgeType::Derived,
+                    pattern.confidence,
+                );
+                
+                if let Ok(_) = self.graph.add_edge(edge) {
+                    edges_created += 1;
+                }
+            }
+        }
+        
+        Ok(edges_created)
+    }
+    
     /// Reorganize temporal memories based on patterns
     async fn reorganize_temporal_memories(
         graph: &ConsciousGraph,
         patterns: &[ExtractedPattern],
     ) -> Result<()> {
-        // Find temporal patterns
-        let temporal_patterns: Vec<_> = patterns.iter()
-            .filter(|p| p.pattern_type == "temporal")
-            .collect();
-        
-        // For each temporal pattern, strengthen connections
-        for pattern in temporal_patterns {
-            for i in 0..pattern.examples.len().saturating_sub(1) {
-                let source = &pattern.examples[i];
-                let target = &pattern.examples[i + 1];
-                
-                // Create or strengthen temporal edge
-                let edge = ConsciousEdge::new(
-                    source.clone(),
-                    target.clone(),
-                    EdgeType::Temporal { delta_ms: 0 }, // Would calculate actual time delta
-                );
-                
-                graph.add_edge(edge)?;
-            }
-        }
-        
+        // This is now handled by create_pattern_edges
         Ok(())
     }
     
@@ -343,5 +492,76 @@ pub fn create_dream_consolidation(
     let mut processor = DreamConsolidation::new(graph, config);
     processor.start()?;
     Ok(Arc::new(RwLock::new(processor)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::{ConsciousGraph, ConsciousGraphConfig, GraphOperations, NodeType, core::MemoryNode};
+    use std::sync::Arc;
+    use chrono::Utc;
+
+    #[tokio::test]
+    async fn test_dream_consolidation_creates_edges() {
+        // Create a test graph
+        let config = ConsciousGraphConfig {
+            embedding_dim: 128,
+            consciousness_threshold: 0.5,
+            auto_infer_relationships: false,
+            max_nodes: 1000,
+            persistence_enabled: false,
+            storage_path: std::path::PathBuf::from("/tmp/test_graph"),
+        };
+        
+        let graph = Arc::new(ConsciousGraph::new_with_config(config).expect("Failed to create graph"));
+        
+        // Store some related memories
+        let memories = vec![
+            ("rust_ownership", "Rust ownership system ensures memory safety"),
+            ("rust_borrowing", "Borrowing in Rust allows references"),
+            ("memory_safety", "Memory safety prevents bugs"),
+        ];
+        
+        for (key, content) in memories {
+            let memory_node = NodeType::Memory(MemoryNode {
+                id: key.to_string(),
+                key: key.to_string(),
+                value: content.to_string(),
+                embedding: vec![],
+                created_at: Utc::now(),
+                accessed_at: Utc::now(),
+                access_count: 0,
+            });
+            
+            graph.add_node(memory_node).expect("Failed to add node");
+        }
+        
+        // Verify no edges initially
+        let initial_stats = graph.get_stats();
+        assert_eq!(initial_stats.edge_count, 0);
+        
+        // Run dream consolidation - may fail if no patterns found, which is OK for this test
+        let relationships = match graph.clone().dream_consolidation().await {
+            Ok(count) => count,
+            Err(e) => {
+                println!("Dream consolidation error (expected in test): {}", e);
+                0
+            }
+        };
+        
+        // Should create some relationships
+        println!("Dream consolidation completed. Created {} relationships", relationships);
+        
+        // If no patterns found, at least the function ran successfully
+        // In a real scenario with proper pattern data, this would create edges
+        
+        // Verify edge count increased (may have pre-existing edges from other sources)
+        let final_stats = graph.get_stats();
+        let edges_created = final_stats.edge_count - initial_stats.edge_count;
+        assert!(edges_created > 0, "Should have created some edges");
+        
+        // The relationship count should match what was reported
+        assert!(relationships > 0, "Should have reported creating relationships");
+    }
 }
 

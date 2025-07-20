@@ -13,6 +13,7 @@ pub mod compatibility;
 pub mod conscious_graph;
 pub mod dream_consolidation;
 pub mod cross_modal;
+pub mod temporal_tracker;
 
 // Re-export key types
 pub use self::core::{ConsciousNode, ConsciousEdge, NodeType, EdgeType, NodeId, EdgeId};
@@ -23,11 +24,12 @@ pub use self::patterns::{PatternExtractor, ExtractedPattern};
 pub use self::algorithms::{GraphAlgorithms, TraversalOptions};
 pub use self::compatibility::{HybridMemoryBank, MigrationState};
 pub use self::conscious_graph::{ConsciousGraph, ConsciousGraphConfig, GraphStats};
-pub use self::dream_consolidation::{DreamConsolidation, DreamConfig, DreamInsight, InsightType, ConsolidationStats};
+pub use self::dream_consolidation::{DreamConsolidation, DreamConfig, DreamInsight, InsightType, ConsolidationStats, ConsolidationResult};
 pub use self::cross_modal::{
     CrossModalBridge, CrossModalConfig, MemoryModality, CrossModalConnection,
     CrossModalStats, BridgeStrength, FeatureExtractor
 };
+pub use self::temporal_tracker::{TemporalTracker, AccessSequence, CooccurrencePattern, TemporalStats};
 
 use anyhow::Result;
 

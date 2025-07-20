@@ -160,6 +160,7 @@ fn describe_edge_type(edge_type: &EdgeType) -> String {
         EdgeType::Temporal { delta_ms } => format!("Temporal connection ({} ms apart)", delta_ms),
         EdgeType::Derived => "Derived insight".to_string(),
         EdgeType::Association { strength } => format!("Associated (strength: {:.2})", strength),
+        EdgeType::Semantic => "Semantic relationship".to_string(),
     }
 }
 

@@ -181,6 +181,7 @@ pub enum EdgeType {
     Temporal { delta_ms: i64 },
     Derived,
     Association { strength: f32 },
+    Semantic,
 }
 
 /// A conscious edge with traversal tracking
@@ -321,5 +322,14 @@ impl ConsciousEdge {
     /// Get the edge's ID as a string
     pub fn id_string(&self) -> EdgeId {
         self.id.to_string()
+    }
+    
+    /// Create a new ConsciousEdge with specific weight
+    pub fn new_weighted(source: NodeId, target: NodeId, edge_type: EdgeType, weight: f32) -> Self {
+        let mut edge = Self::new(source, target, edge_type);
+        edge.strength.base = weight;
+        edge.strength.learned = weight;
+        edge.strength.combined = weight;
+        edge
     }
 }

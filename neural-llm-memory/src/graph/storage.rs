@@ -462,13 +462,17 @@ impl GraphStorage {
     
     /// Trigger a checkpoint by saving a snapshot and clearing WAL
     fn trigger_checkpoint(&self) -> Result<()> {
-        // Use blocking I/O since we're in a sync context
-        let rt = tokio::runtime::Handle::try_current();
-        if let Ok(handle) = rt {
-            handle.block_on(self.save_snapshot())?;
-        } else {
-            // Fallback to synchronous save
-            self.save_snapshot_sync()?;
+        // Try to use async runtime if available, otherwise use sync version
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => {
+                // We have a runtime but can't use block_on from within async context
+                // So we'll use the sync version which is safe to call
+                self.save_snapshot_sync()?;
+            }
+            Err(_) => {
+                // No runtime available, use sync version
+                self.save_snapshot_sync()?;
+            }
         }
         Ok(())
     }
@@ -679,6 +683,41 @@ impl GraphStorage {
         }
         
         Ok(())
+    }
+    
+    /// Get nodes created within a time window
+    pub fn get_nodes_since(&self, since: DateTime<Utc>) -> Result<Vec<(NodeId, ConsciousNode)>> {
+        let graph = self.graph.read();
+        let mut recent_nodes = Vec::new();
+        
+        for idx in graph.node_indices() {
+            if let Some(node) = graph.node_weight(idx) {
+                if node.created_at >= since {
+                    // Get the node ID from our index
+                    if let Some(node_id) = self.get_node_id_by_index(idx) {
+                        recent_nodes.push((node_id, node.clone()));
+                    }
+                }
+            }
+        }
+        
+        Ok(recent_nodes)
+    }
+    
+    /// Get node ID by memory key
+    pub fn get_node_id_by_key(&self, key: &str) -> Option<NodeId> {
+        self.key_to_node.get(key).map(|entry| entry.value().clone())
+    }
+    
+    /// Helper to get node ID by graph index
+    fn get_node_id_by_index(&self, idx: NodeIndex) -> Option<NodeId> {
+        // Reverse lookup in node_index
+        for entry in self.node_index.iter() {
+            if *entry.value() == idx {
+                return Some(entry.key().clone());
+            }
+        }
+        None
     }
 }
 

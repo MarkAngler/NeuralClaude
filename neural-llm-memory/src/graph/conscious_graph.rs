@@ -4,7 +4,9 @@ use crate::graph::{
     GraphOperations, GraphQueryResult, GraphPath, QueryStats,
     ConsciousNode, ConsciousEdge, NodeType, EdgeType, NodeId, EdgeId,
     GraphStorage, GraphIndices, HnswIndex, GraphAlgorithms, TraversalOptions,
-    RelationshipInference, PatternExtractor, ExtractedPattern
+    RelationshipInference, PatternExtractor, ExtractedPattern,
+    dream_consolidation::DreamConsolidation,
+    temporal_tracker::TemporalTracker
 };
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -16,7 +18,7 @@ use chrono::Utc;
 /// Main Conscious Knowledge Graph that orchestrates all components
 pub struct ConsciousGraph {
     /// Graph storage backend
-    storage: Arc<GraphStorage>,
+    pub storage: Arc<GraphStorage>,
     
     /// High-performance indices
     indices: Arc<GraphIndices>,
@@ -29,6 +31,9 @@ pub struct ConsciousGraph {
     
     /// Graph algorithms
     algorithms: Arc<GraphAlgorithms>,
+    
+    /// Temporal access tracker
+    temporal_tracker: Arc<TemporalTracker>,
     
     /// Configuration
     config: ConsciousGraphConfig,
@@ -96,6 +101,9 @@ impl ConsciousGraph {
         // Initialize algorithms
         let algorithms = Arc::new(GraphAlgorithms);
         
+        // Initialize temporal tracker (24 hour window by default)
+        let temporal_tracker = Arc::new(TemporalTracker::new(24));
+        
         // Initialize stats
         let stats = Arc::new(RwLock::new(GraphStats::default()));
         
@@ -105,6 +113,7 @@ impl ConsciousGraph {
             inference,
             patterns,
             algorithms,
+            temporal_tracker,
             config,
             stats,
         })
@@ -113,6 +122,11 @@ impl ConsciousGraph {
     /// Get graph statistics
     pub fn get_stats(&self) -> GraphStats {
         self.stats.read().clone()
+    }
+    
+    /// Get the temporal tracker
+    pub fn get_temporal_tracker(&self) -> Arc<TemporalTracker> {
+        Arc::clone(&self.temporal_tracker)
     }
     
     /// Update consciousness levels based on usage patterns
@@ -124,20 +138,24 @@ impl ConsciousGraph {
     }
     
     /// Perform dream-like consolidation of memories
-    pub fn dream_consolidation(&self) -> Result<usize> {
+    pub async fn dream_consolidation(self: Arc<Self>) -> Result<usize> {
         let start_time = Instant::now();
         
-        // Extract patterns from recent memories
-        let patterns = self.patterns.extract_temporal_patterns_by_hours(24)?; // Last 24 hours
+        // Use the DreamConsolidation processor for proper edge creation
+        let dream_processor = DreamConsolidation::new_from_graph(self.clone());
+        let consolidation_result = dream_processor.process().await?;
         
-        // Consolidate similar patterns
-        let consolidated_count = patterns.len();
-        
-        // Update stats
+        // Update stats with actual relationships created
         let mut stats = self.stats.write();
-        stats.pattern_extractions += consolidated_count as u64;
+        stats.pattern_extractions += consolidation_result.patterns_found as u64;
+        stats.edge_count += consolidation_result.relationships_created;
         
-        Ok(consolidated_count)
+        // Log actual relationships created
+        println!("Dream consolidation created {} relationships, {} insights", 
+                 consolidation_result.relationships_created,
+                 consolidation_result.insights_generated);
+        
+        Ok(consolidation_result.relationships_created)
     }
     
     /// Find similar nodes using consciousness-aware similarity
@@ -179,11 +197,23 @@ impl GraphOperations for ConsciousGraph {
     fn add_node(&self, node: NodeType) -> Result<NodeId> {
         let start_time = Instant::now();
         
+        // Extract content based on node type
+        let (key, content) = match &node {
+            NodeType::Memory(mem) => (mem.id.clone(), mem.value.clone()),
+            NodeType::Pattern(pat) => (pat.id.clone(), pat.description.clone()),
+            NodeType::Concept(con) => (con.id.clone(), con.definition.clone()),
+            NodeType::Context(ctx) => (ctx.id.clone(), ctx.description.clone()),
+            NodeType::Entity(ent) => (ent.id.clone(), format!("{} ({})", ent.name, ent.entity_type)),
+        };
+        
+        // Generate embedding from content
+        let embedding = self.generate_embedding(&content);
+        
         // Create ConsciousNode from NodeType
         let conscious_node = ConsciousNode::new(
-            "generated_key".to_string(), // This should be derived from the node
-            "generated_content".to_string(), // This should be derived from the node
-            vec![0.0; self.config.embedding_dim], // This should be computed
+            key,
+            content,
+            embedding,
             node,
         );
         
@@ -218,7 +248,18 @@ impl GraphOperations for ConsciousGraph {
     }
     
     fn query_graph(&self, start: &NodeId, depth: usize) -> Result<GraphQueryResult> {
-        self.conscious_traverse(start, depth)
+        // Record access to the starting node
+        self.temporal_tracker.record_access(start);
+        
+        let result = self.conscious_traverse(start, depth)?;
+        
+        // Record access to all nodes in the result
+        let node_ids: Vec<NodeId> = result.nodes.iter()
+            .map(|node| node.id_string())
+            .collect();
+        self.temporal_tracker.record_batch_access(&node_ids);
+        
+        Ok(result)
     }
     
     fn extract_patterns(&self, context: &str) -> Result<Vec<ExtractedPattern>> {
@@ -228,6 +269,30 @@ impl GraphOperations for ConsciousGraph {
         self.stats.write().pattern_extractions += patterns.len() as u64;
         
         Ok(patterns)
+    }
+}
+
+impl ConsciousGraph {
+    /// Generate embedding from text using simple hash-based approach
+    fn generate_embedding(&self, text: &str) -> Vec<f32> {
+        let embedding_dim = self.config.embedding_dim;
+        let mut embedding = vec![0.0; embedding_dim];
+        
+        // Simple hash-based features (same as PersistentMemoryModuleExt)
+        for (i, ch) in text.chars().enumerate() {
+            let idx = (ch as usize + i) % embedding_dim;
+            embedding[idx] += 1.0;
+        }
+        
+        // Normalize to unit vector for cosine similarity
+        let sum: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if sum > 0.0 {
+            for val in &mut embedding {
+                *val /= sum;
+            }
+        }
+        
+        embedding
     }
 }
 

@@ -344,6 +344,7 @@ impl GraphAlgorithms {
                 EdgeType::Temporal { .. } => "temporal",
                 EdgeType::Derived => "derived",
                 EdgeType::Association { .. } => "association",
+                EdgeType::Semantic => "semantic",
             };
             
             if !filter.contains(&edge_type_name.to_string()) {
