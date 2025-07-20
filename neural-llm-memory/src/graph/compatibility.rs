@@ -511,15 +511,17 @@ impl MemoryOperations for HybridMemoryBank {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory::{MemoryConfig, MemoryMetadata};
+    use crate::graph::conscious_graph::ConsciousGraphConfig;
     
     #[tokio::test]
     async fn test_hybrid_memory_bank() {
-        let kv_bank = MemoryBank::new(1000, 100);
-        let mut hybrid = HybridMemoryBank::new(
-            kv_bank,
-            std::path::PathBuf::from("test_hybrid.bin"),
-            HybridMemoryConfig::default(),
-        ).unwrap();
+        let memory_config = MemoryConfig::default();
+        let graph_config = ConsciousGraphConfig {
+            storage_path: std::path::PathBuf::from("test_hybrid.bin"),
+            ..Default::default()
+        };
+        let mut hybrid = HybridMemoryBank::new(memory_config, graph_config).await.unwrap();
         
         // Test dual storage
         let key = MemoryKey {
@@ -544,16 +546,16 @@ mod tests {
         assert!(!result.is_empty());
     }
     
-    #[test]
-    fn test_clear_and_update() {
+    #[tokio::test]
+    async fn test_clear_and_update() {
         use crate::memory::MemoryOperations;
         
-        let kv_bank = MemoryBank::new(1000, 100);
-        let mut hybrid = HybridMemoryBank::new(
-            kv_bank,
-            std::path::PathBuf::from("test_clear_update.bin"),
-            HybridMemoryConfig::default(),
-        ).unwrap();
+        let memory_config = MemoryConfig::default();
+        let graph_config = ConsciousGraphConfig {
+            storage_path: std::path::PathBuf::from("test_clear_update.bin"),
+            ..Default::default()
+        };
+        let mut hybrid = HybridMemoryBank::new(memory_config, graph_config).await.unwrap();
         
         // Store some data
         let key1 = MemoryKey {
@@ -592,14 +594,14 @@ mod tests {
         assert_eq!(hybrid.size(), 0);
     }
     
-    #[test]
-    fn test_config_helpers() {
-        let kv_bank = MemoryBank::new(1000, 100);
-        let mut hybrid = HybridMemoryBank::new(
-            kv_bank,
-            std::path::PathBuf::from("test_config.bin"),
-            HybridMemoryConfig::default(),
-        ).unwrap();
+    #[tokio::test]
+    async fn test_config_helpers() {
+        let memory_config = MemoryConfig::default();
+        let graph_config = ConsciousGraphConfig {
+            storage_path: std::path::PathBuf::from("test_config.bin"),
+            ..Default::default()
+        };
+        let mut hybrid = HybridMemoryBank::new(memory_config, graph_config).await.unwrap();
         
         // Test initial state
         assert!(hybrid.is_graph_enabled());
