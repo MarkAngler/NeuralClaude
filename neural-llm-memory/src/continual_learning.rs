@@ -1176,26 +1176,3 @@ impl AdaptiveMemoryModule {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_ewc_fisher_calculation() {
-        let ewc = ElasticWeightConsolidation::new(0.1, 100);
-        // Add test implementation
-    }
-    
-    #[test]
-    fn test_task_boundary_detection() {
-        let mut detector = TaskBoundaryDetector::new(0.5, 100);
-        // Add test implementation
-    }
-    
-    #[test]
-    fn test_progressive_network() {
-        let builder = NetworkBuilder::new();
-        let mut prog_net = ProgressiveNeuralNetwork::new(builder);
-        // Add test implementation
-    }
-}

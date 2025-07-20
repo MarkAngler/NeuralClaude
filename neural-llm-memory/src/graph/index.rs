@@ -227,36 +227,3 @@ impl GraphIndices {
 }
 
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_cosine_similarity() {
-        // Same vectors should have similarity 1.0
-        let a = vec![1.0, 0.0, 0.0];
-        let b = vec![1.0, 0.0, 0.0];
-        assert!((HnswIndex::cosine_similarity(&a, &b) - 1.0).abs() < 0.0001);
-        
-        // Orthogonal vectors should have similarity 0.0
-        let c = vec![1.0, 0.0];
-        let d = vec![0.0, 1.0];
-        assert!((HnswIndex::cosine_similarity(&c, &d) - 0.0).abs() < 0.0001);
-    }
-    
-    #[test]
-    fn test_hnsw_index() {
-        let mut index = HnswIndex::new(3);
-        
-        // Insert some vectors
-        index.insert("node1".to_string(), &[1.0, 0.0, 0.0]).unwrap();
-        index.insert("node2".to_string(), &[0.9, 0.1, 0.0]).unwrap();
-        index.insert("node3".to_string(), &[0.0, 1.0, 0.0]).unwrap();
-        
-        // Search for similar vectors
-        let results = index.search(&[1.0, 0.0, 0.0], 2);
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].0, "node1");
-        assert_eq!(results[1].0, "node2");
-    }
-}

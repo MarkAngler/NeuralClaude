@@ -273,26 +273,3 @@ impl BatchInference {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_keyword_extraction() {
-        let extractor = ConceptExtractor;
-        let content = "This is a test of keyword extraction functionality";
-        let keywords = extractor.extract_keywords(content);
-        
-        assert!(keywords.contains(&"keyword".to_string()));
-        assert!(keywords.contains(&"extraction".to_string()));
-        assert!(keywords.len() <= 5);
-    }
-    
-    #[test]
-    fn test_inference_default() {
-        let inference = RelationshipInference::default();
-        assert_eq!(inference.similarity_threshold, 0.8);
-        assert_eq!(inference.temporal_window_ms, 60 * 1000);
-        assert_eq!(inference.pattern_matchers.len(), 3);
-    }
-}

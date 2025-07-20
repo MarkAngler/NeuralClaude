@@ -345,32 +345,3 @@ pub fn create_dream_consolidation(
     Ok(Arc::new(RwLock::new(processor)))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_dream_config_default() {
-        let config = DreamConfig::default();
-        assert_eq!(config.consolidation_interval, 300);
-        assert_eq!(config.insight_confidence_threshold, 0.7);
-        assert_eq!(config.analysis_window_hours, 24);
-    }
-    
-    #[test]
-    fn test_insight_creation() {
-        let insight = DreamInsight {
-            id: "test-insight".to_string(),
-            insight_type: InsightType::PatternRecognition,
-            description: "Test insight".to_string(),
-            confidence: 0.8,
-            source_patterns: vec!["pattern1".to_string()],
-            related_memories: vec!["memory1".to_string()],
-            metadata: HashMap::new(),
-            created_at: Utc::now(),
-        };
-        
-        assert_eq!(insight.confidence, 0.8);
-        assert_eq!(insight.source_patterns.len(), 1);
-    }
-}

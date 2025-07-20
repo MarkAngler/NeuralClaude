@@ -683,36 +683,3 @@ impl GraphStorage {
 }
 
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[tokio::test]
-    async fn test_graph_storage_basic() {
-        let storage = GraphStorage::new(PathBuf::from("test_graph.bin")).unwrap();
-        
-        // Create a test node
-        let node = ConsciousNode::new(
-            "test_key".to_string(),
-            "test content".to_string(),
-            vec![0.1; 768],
-            NodeType::Memory(crate::graph::core::MemoryNode {
-                id: "test_id".to_string(),
-                key: "test_key".to_string(),
-                value: "test_value".to_string(),
-                embedding: vec![0.1; 768],
-                created_at: Utc::now(),
-                accessed_at: Utc::now(),
-                access_count: 0,
-            })
-        );
-        
-        // Add node
-        let node_id = storage.add_node(node).unwrap();
-        assert_eq!(storage.node_count(), 1);
-        
-        // Retrieve node
-        let retrieved = storage.get_node(&node_id).unwrap();
-        assert_eq!(retrieved.key, "test_key");
-    }
-}

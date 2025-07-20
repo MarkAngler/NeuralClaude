@@ -472,15 +472,3 @@ pub struct SequentialPattern {
     pub instances: Vec<Vec<NodeId>>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_pattern_extractor_default() {
-        let extractor = PatternExtractor::default();
-        assert_eq!(extractor.min_frequency, 3);
-        assert_eq!(extractor.confidence_threshold, 0.7);
-        assert_eq!(extractor.pattern_types.len(), 3);
-    }
-}

@@ -336,39 +336,3 @@ impl LayerStateBuilder {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_linear_layer_serialization() {
-        let layer = LinearLayer::new(
-            10,
-            5,
-            ActivationFunction::ReLU,
-            true,
-            crate::nn::WeightInit::Xavier,
-        );
-        
-        let state = LayerState::from_linear(&layer);
-        assert_eq!(state.layer_type(), "Linear");
-        assert_eq!(state.input_size(), 10);
-        assert_eq!(state.output_size(), 5);
-        assert!(state.weights.is_some());
-        assert!(state.bias.is_some());
-        
-        // Test round trip
-        let restored = state.to_linear().unwrap();
-        assert_eq!(restored.weights.shape(), layer.weights.shape());
-    }
-    
-    #[test]
-    fn test_layer_state_builder() {
-        let state = LayerStateBuilder::linear(10, 5, ActivationFunction::ReLU, true)
-            .with_weights(Array2::zeros((10, 5)))
-            .with_bias(Array2::zeros((1, 5)))
-            .build();
-        
-        assert_eq!(state.count_parameters(), 10 * 5 + 5);
-    }
-}

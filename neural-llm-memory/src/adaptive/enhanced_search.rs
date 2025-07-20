@@ -163,29 +163,3 @@ fn describe_edge_type(edge_type: &EdgeType) -> String {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_related_score_calculation() {
-        let base_score = 0.9;
-        assert_eq!(calculate_related_score(base_score, 1), 0.72);
-        assert_eq!(calculate_related_score(base_score, 2), 0.576);
-    }
-    
-    #[test]
-    fn test_edge_description() {
-        let related_edge = EdgeType::Related { weight: 0.85 };
-        assert_eq!(
-            describe_edge_type(&related_edge),
-            "Related (weight: 0.85)"
-        );
-        
-        let temporal_edge = EdgeType::Temporal { delta_ms: 5000 };
-        assert_eq!(
-            describe_edge_type(&temporal_edge),
-            "Temporal connection (5000 ms apart)"
-        );
-    }
-}

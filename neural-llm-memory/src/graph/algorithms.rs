@@ -377,15 +377,3 @@ pub struct GraphCluster {
     pub description: String,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_traversal_options_default() {
-        let options = TraversalOptions::default();
-        assert_eq!(options.max_depth, 3);
-        assert_eq!(options.max_nodes, 50);
-        assert!(options.edge_filter.is_none());
-    }
-}

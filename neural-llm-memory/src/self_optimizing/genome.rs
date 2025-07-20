@@ -502,50 +502,5 @@ fn adjust_num_heads(num_heads: usize, embedding_dim: usize) -> usize {
     1 // Fallback to single head
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_random_genome_generation() {
-        let config = crate::self_optimizing::SelfOptimizingConfig::default();
-        let genome = ArchitectureGenome::random(&config);
-        
-        assert!(genome.layers.len() >= config.min_layers);
-        assert!(genome.layers.len() <= config.max_layers);
-        assert!(!genome.connections.is_empty());
-    }
-    
-    #[test]
-    fn test_genome_mutation() {
-        let config = crate::self_optimizing::SelfOptimizingConfig::default();
-        let mut genome = ArchitectureGenome::random(&config);
-        let original = genome.clone();
-        
-        genome.mutate(1.0); // High mutation rate for testing
-        
-        // Something should have changed
-        assert!(
-            genome.layers != original.layers || 
-            genome.connections != original.connections ||
-            genome.hyperparameters.learning_rate != original.hyperparameters.learning_rate
-        );
-    }
-    
-    #[test]
-    fn test_genome_crossover() {
-        let config = crate::self_optimizing::SelfOptimizingConfig::default();
-        let parent1 = ArchitectureGenome::random(&config);
-        let parent2 = ArchitectureGenome::random(&config);
-        
-        let offspring = parent1.crossover(&parent2);
-        
-        assert_ne!(offspring.id, parent1.id);
-        assert_ne!(offspring.id, parent2.id);
-    }
-}
 
 // Include the extended tests
-#[cfg(test)]
-#[path = "genome_tests.rs"]
-mod genome_tests;

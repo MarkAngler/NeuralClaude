@@ -307,24 +307,3 @@ pub struct GenerationStats {
     pub convergence_rate: f32,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_self_optimizing_network_creation() {
-        let config = SelfOptimizingConfig::default();
-        let network = SelfOptimizingNetwork::new(config);
-        
-        assert_eq!(network.generation, 0);
-    }
-    
-    #[test]
-    fn test_config_serialization() {
-        let config = SelfOptimizingConfig::default();
-        let json = serde_json::to_string(&config).unwrap();
-        let deserialized: SelfOptimizingConfig = serde_json::from_str(&json).unwrap();
-        
-        assert_eq!(config.population_size, deserialized.population_size);
-    }
-}

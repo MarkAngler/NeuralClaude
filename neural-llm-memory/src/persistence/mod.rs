@@ -280,24 +280,3 @@ impl CheckpointManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::self_optimizing::{SelfOptimizingConfig, SelfOptimizingNetwork};
-    use tempfile::TempDir;
-    
-    #[test]
-    fn test_save_load_binary() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path().join("network.bin");
-        
-        // Create a simple network state
-        let config = SelfOptimizingConfig::default();
-        let network = SelfOptimizingNetwork::new_with_io_sizes(config, 10, 5);
-        
-        // Convert to state (would need to implement conversion)
-        // let state = NetworkState::from_network(&network);
-        
-        // Test would continue here once conversion is implemented
-    }
-}

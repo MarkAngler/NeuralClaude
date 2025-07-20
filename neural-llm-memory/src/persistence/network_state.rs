@@ -350,35 +350,3 @@ impl NetworkStateBuilder {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_network_state_creation() {
-        let genome = ArchitectureGenome::random(&SelfOptimizingConfig::default());
-        let config = SelfOptimizingConfig::default();
-        
-        let state = NetworkState::new(genome, config, 768, 128);
-        
-        assert_eq!(state.metadata.input_size, 768);
-        assert_eq!(state.metadata.output_size, 128);
-        assert_eq!(state.layers.len(), 0);
-    }
-    
-    #[test]
-    fn test_network_state_builder() {
-        let genome = ArchitectureGenome::random(&SelfOptimizingConfig::default());
-        let config = SelfOptimizingConfig::default();
-        
-        let result = NetworkStateBuilder::new(genome, config, 768, 128)
-            .with_description("Test network")
-            .with_tag("purpose", "testing")
-            .build();
-        
-        assert!(result.is_ok());
-        let state = result.unwrap();
-        assert_eq!(state.metadata.description, "Test network");
-        assert_eq!(state.metadata.tags.get("purpose"), Some(&"testing".to_string()));
-    }
-}

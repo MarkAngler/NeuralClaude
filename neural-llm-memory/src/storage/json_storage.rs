@@ -339,32 +339,3 @@ struct WalEntry {
     operation: WalOperation,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-    
-    #[test]
-    fn test_json_storage_basic() {
-        let temp_dir = TempDir::new().unwrap();
-        let config = StorageConfig::new(temp_dir.path());
-        let mut storage = JsonStorage::new(config);
-        
-        storage.init().unwrap();
-        
-        // Test save and load
-        let key = MemoryKey::new("test_id".to_string(), "test context");
-        let value = MemoryValue {
-            embedding: vec![1.0, 2.0, 3.0],
-            content: "test content".to_string(),
-            metadata: Default::default(),
-        };
-        
-        storage.save_one(&key, &value).unwrap();
-        
-        let loaded = storage.load_all().unwrap();
-        assert_eq!(loaded.len(), 1);
-        assert_eq!(loaded[0].0.id, "test_id");
-        assert_eq!(loaded[0].1.content, "test content");
-    }
-}

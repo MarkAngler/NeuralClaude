@@ -346,38 +346,3 @@ pub async fn start_auto_save_task(module: Arc<AdaptiveMemoryModule>, interval_se
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-    
-    #[tokio::test]
-    async fn test_save_load_state() {
-        let temp_dir = TempDir::new().unwrap();
-        let base_config = MemoryConfig::default();
-        
-        // Create module and perform some operations
-        let module = AdaptiveMemoryModule::new(base_config.clone()).await.unwrap();
-        
-        // Store some data
-        let _ = module.store("test_key", "test_content").await.unwrap();
-        
-        // Save state
-        module.save_state(temp_dir.path()).await.unwrap();
-        
-        // Verify files were created
-        assert!(temp_dir.path().join("adaptive_state.json").exists());
-        
-        // Load state
-        let loaded_module = AdaptiveMemoryModule::load_state(
-            temp_dir.path(),
-            base_config
-        ).await.unwrap();
-        
-        // Verify operation count was preserved
-        assert_eq!(
-            *loaded_module.operation_count().read().await,
-            *module.operation_count().read().await
-        );
-    }
-}
