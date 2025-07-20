@@ -74,9 +74,6 @@ codegen-units = 1
 name = "mcp_server"
 path = "src/bin/mcp_server.rs"
 
-[[bin]]
-name = "integration_verification"
-path = "integration_verification.rs"
 
 [[example]]
 name = "self_optimizing_demo"

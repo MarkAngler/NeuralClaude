@@ -1,22 +1,14 @@
-use std::collections::HashMap;
 use std::time::Duration;
 use neural_llm_memory::{
-    MemoryBank, MemoryModule, MemoryConfig, PersistentMemoryModule, 
-    PersistentMemoryBuilder
+    MemoryBank, MemoryConfig
 };
 use neural_llm_memory::graph::{
-    HybridMemoryBank
-};
-use neural_llm_memory::graph::compatibility::{
-    HybridMemoryConfig, MigrationState
+    HybridMemoryBank, ConsciousGraphConfig, MigrationState
 };
 use neural_llm_memory::memory::{
     MemoryOperations, MemoryKey, MemoryValue, MemoryMetadata
 };
-use serde_json::json;
 use tokio::time::sleep;
-use chrono::Utc;
-use ndarray::Array2;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,11 +52,20 @@ async fn test_backward_compatibility() -> Result<(), Box<dyn std::error::Error>>
         embedding_dim: 768,
     };
     
-    let mut hybrid_bank = HybridMemoryBank::new(
-        kv_bank,
-        std::path::PathBuf::from("test_backward_compat.bin"),
-        config,
-    )?;
+    let memory_config = MemoryConfig {
+        memory_size: 1000,
+        embedding_dim: 768,
+        ..Default::default()
+    };
+    
+    let graph_config = ConsciousGraphConfig {
+        embedding_dim: 768,
+        auto_infer_relationships: false,
+        storage_path: std::path::PathBuf::from("test_backward_compat.bin"),
+        ..Default::default()
+    };
+    
+    let mut hybrid_bank = HybridMemoryBank::new(memory_config, graph_config).await?;
     
     // Test traditional MemoryOperations
     let key1 = MemoryKey {
@@ -131,19 +132,20 @@ async fn test_graph_operations() -> Result<(), Box<dyn std::error::Error>> {
     println!("Testing graph operations...");
     
     // Create HybridMemoryBank with graph enabled
-    let kv_bank = MemoryBank::new(1000, 100);
-    let config = HybridMemoryConfig {
-        graph_enabled: true,
-        auto_infer_relationships: true,
-        migration_batch_size: 100,
+    let memory_config = MemoryConfig {
+        memory_size: 1000,
         embedding_dim: 768,
+        ..Default::default()
     };
     
-    let mut hybrid_bank = HybridMemoryBank::new(
-        kv_bank,
-        std::path::PathBuf::from("test_graph_ops.bin"),
-        config,
-    )?;
+    let graph_config = ConsciousGraphConfig {
+        embedding_dim: 768,
+        auto_infer_relationships: true,
+        storage_path: std::path::PathBuf::from("test_graph_ops.bin"),
+        ..Default::default()
+    };
+    
+    let mut hybrid_bank = HybridMemoryBank::new(memory_config, graph_config).await?;
     
     // Add some interconnected memories
     let key1 = MemoryKey {
@@ -228,18 +230,20 @@ async fn test_configuration_options() -> Result<(), Box<dyn std::error::Error>> 
     println!("Testing configuration options...");
     
     // Test 1: Graph disabled
-    let config_disabled = HybridMemoryConfig {
-        graph_enabled: false,
-        auto_infer_relationships: false,
-        migration_batch_size: 100,
+    let memory_config = MemoryConfig {
+        memory_size: 1000,
         embedding_dim: 768,
+        ..Default::default()
     };
     
-    let mut bank_disabled = HybridMemoryBank::new(
-        MemoryBank::new(1000, 100),
-        std::path::PathBuf::from("test_config_disabled.bin"),
-        config_disabled,
-    )?;
+    let graph_config = ConsciousGraphConfig {
+        embedding_dim: 768,
+        auto_infer_relationships: false,
+        storage_path: std::path::PathBuf::from("test_config_disabled.bin"),
+        ..Default::default()
+    };
+    
+    let mut bank_disabled = HybridMemoryBank::new(memory_config, graph_config).await?;
     
     let key = MemoryKey {
         id: "test_disabled".to_string(),
@@ -266,18 +270,20 @@ async fn test_configuration_options() -> Result<(), Box<dyn std::error::Error>> 
     println!("✅ Graph disabled configuration: SUCCESS");
     
     // Test 2: Graph enabled with custom settings
-    let config_custom = HybridMemoryConfig {
-        graph_enabled: true,
-        auto_infer_relationships: true,
-        migration_batch_size: 50,
+    let memory_config_custom = MemoryConfig {
+        memory_size: 500,
         embedding_dim: 512,
+        ..Default::default()
     };
     
-    let mut bank_custom = HybridMemoryBank::new(
-        MemoryBank::new(500, 50),
-        std::path::PathBuf::from("test_config_custom.bin"),
-        config_custom,
-    )?;
+    let graph_config_custom = ConsciousGraphConfig {
+        embedding_dim: 512,
+        auto_infer_relationships: true,
+        storage_path: std::path::PathBuf::from("test_config_custom.bin"),
+        ..Default::default()
+    };
+    
+    let mut bank_custom = HybridMemoryBank::new(memory_config_custom, graph_config_custom).await?;
     
     let key_custom = MemoryKey {
         id: "test_custom".to_string(),
@@ -302,11 +308,13 @@ async fn test_configuration_options() -> Result<(), Box<dyn std::error::Error>> 
     println!("✅ Custom configuration: SUCCESS");
     
     // Test 3: Dynamic configuration changes
-    let mut bank_dynamic = HybridMemoryBank::new(
-        MemoryBank::new(1000, 100),
-        std::path::PathBuf::from("test_config_dynamic.bin"),
-        HybridMemoryConfig::default(),
-    )?;
+    let memory_config_dynamic = MemoryConfig::default();
+    let graph_config_dynamic = ConsciousGraphConfig {
+        storage_path: std::path::PathBuf::from("test_config_dynamic.bin"),
+        ..Default::default()
+    };
+    
+    let mut bank_dynamic = HybridMemoryBank::new(memory_config_dynamic, graph_config_dynamic).await?;
     
     assert!(bank_dynamic.is_graph_enabled());
     
@@ -380,18 +388,20 @@ async fn test_migration_path() -> Result<(), Box<dyn std::error::Error>> {
     println!("Testing migration path from KV-only to graph-enabled...");
     
     // Step 1: Create HybridMemoryBank with graph disabled (simulating existing usage)
-    let config_kv_only = HybridMemoryConfig {
-        graph_enabled: false,
-        auto_infer_relationships: false,
-        migration_batch_size: 100,
+    let memory_config_kv = MemoryConfig {
+        memory_size: 1000,
         embedding_dim: 768,
+        ..Default::default()
     };
     
-    let mut bank_kv = HybridMemoryBank::new(
-        MemoryBank::new(1000, 100),
-        std::path::PathBuf::from("test_migration_kv.bin"),
-        config_kv_only,
-    )?;
+    let graph_config_kv = ConsciousGraphConfig {
+        embedding_dim: 768,
+        auto_infer_relationships: false,
+        storage_path: std::path::PathBuf::from("test_migration_kv.bin"),
+        ..Default::default()
+    };
+    
+    let mut bank_kv = HybridMemoryBank::new(memory_config_kv, graph_config_kv).await?;
     
     // Add some data in KV-only mode
     let key1 = MemoryKey {
@@ -456,16 +466,20 @@ async fn test_migration_path() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ KV-only mode: {} memories stored", size_before);
     
     // Step 2: Enable graph features (simulating migration)
-    let mut bank_graph = HybridMemoryBank::new(
-        MemoryBank::new(1000, 100),
-        std::path::PathBuf::from("test_migration_graph.bin"),
-        HybridMemoryConfig {
-            graph_enabled: true,
-            auto_infer_relationships: true,
-            migration_batch_size: 100,
-            embedding_dim: 768,
-        },
-    )?;
+    let memory_config_graph = MemoryConfig {
+        memory_size: 1000,
+        embedding_dim: 768,
+        ..Default::default()
+    };
+    
+    let graph_config_graph = ConsciousGraphConfig {
+        embedding_dim: 768,
+        auto_infer_relationships: true,
+        storage_path: std::path::PathBuf::from("test_migration_graph.bin"),
+        ..Default::default()
+    };
+    
+    let mut bank_graph = HybridMemoryBank::new(memory_config_graph, graph_config_graph).await?;
     
     // Re-add the same data (in real scenario, this would be loaded from persistence)
     bank_graph.store(key1.clone(), value1)?;

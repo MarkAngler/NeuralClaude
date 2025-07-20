@@ -21,7 +21,7 @@ pub use self::index::{GraphIndices, HnswIndex};
 pub use self::inference::RelationshipInference;
 pub use self::patterns::{PatternExtractor, ExtractedPattern};
 pub use self::algorithms::{GraphAlgorithms, TraversalOptions};
-pub use self::compatibility::HybridMemoryBank;
+pub use self::compatibility::{HybridMemoryBank, MigrationState};
 pub use self::conscious_graph::{ConsciousGraph, ConsciousGraphConfig, GraphStats};
 pub use self::dream_consolidation::{DreamConsolidation, DreamConfig, DreamInsight, InsightType, ConsolidationStats};
 pub use self::cross_modal::{
