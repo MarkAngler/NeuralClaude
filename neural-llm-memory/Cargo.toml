@@ -47,6 +47,17 @@ petgraph = { version = "0.6", features = ["serde-1"] }
 hnsw = "0.11"
 zstd = "0.13"
 
+# Semantic embedding dependencies
+candle-core = "0.9"
+candle-nn = "0.9"
+candle-transformers = "0.9"
+hf-hub = { version = "0.3", features = ["tokio"] }
+thiserror = "1.0"
+tokenizers = { version = "0.20", features = ["onig"] }
+
+# Embedding caching
+cacache = "12.0"
+
 # Logging and metrics
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -70,6 +81,7 @@ opt-level = 3
 lto = true
 codegen-units = 1
 
+
 [[bin]]
 name = "mcp_server"
 path = "src/bin/mcp_server.rs"
@@ -86,6 +98,10 @@ path = "examples/persistence_demo.rs"
 [[example]]
 name = "continual_learning_demo"
 path = "examples/continual_learning_demo.rs"
+
+[[example]]
+name = "test_embeddings"
+path = "examples/test_embeddings.rs"
 
 [[bench]]
 name = "consciousness_performance"

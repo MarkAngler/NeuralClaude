@@ -8,6 +8,7 @@ use crate::graph::{
     dream_consolidation::DreamConsolidation,
     temporal_tracker::TemporalTracker
 };
+use crate::embeddings::{EmbeddingService, EmbeddingConfig, EmbeddingError};
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
 use parking_lot::RwLock;
@@ -35,6 +36,9 @@ pub struct ConsciousGraph {
     /// Temporal access tracker
     temporal_tracker: Arc<TemporalTracker>,
     
+    /// Semantic embedding service
+    embedding_service: Option<Arc<EmbeddingService>>,
+    
     /// Configuration
     config: ConsciousGraphConfig,
     
@@ -51,6 +55,9 @@ pub struct ConsciousGraphConfig {
     pub max_nodes: usize,
     pub persistence_enabled: bool,
     pub storage_path: PathBuf,
+    /// Semantic embedding configuration
+    pub semantic_embeddings_enabled: bool,
+    pub embedding_config: Option<EmbeddingConfig>,
 }
 
 impl Default for ConsciousGraphConfig {
@@ -62,6 +69,8 @@ impl Default for ConsciousGraphConfig {
             max_nodes: 100_000,
             persistence_enabled: true,
             storage_path: PathBuf::from("./conscious_graph_data"),
+            semantic_embeddings_enabled: true,
+            embedding_config: Some(EmbeddingConfig::default()),
         }
     }
 }
@@ -107,6 +116,8 @@ impl ConsciousGraph {
         // Initialize stats
         let stats = Arc::new(RwLock::new(GraphStats::default()));
         
+        // Note: embedding service is None for synchronous initialization
+        // Use new_with_config_async for semantic embeddings
         Ok(Self {
             storage,
             indices,
@@ -114,6 +125,64 @@ impl ConsciousGraph {
             patterns,
             algorithms,
             temporal_tracker,
+            embedding_service: None,
+            config,
+            stats,
+        })
+    }
+    
+    /// Create a new ConsciousGraph with custom configuration and semantic embeddings
+    pub async fn new_with_config_async(config: ConsciousGraphConfig) -> Result<Self> {
+        // Initialize storage
+        let storage = Arc::new(GraphStorage::new(config.storage_path.clone())?);
+        
+        // Initialize indices
+        let indices = Arc::new(GraphIndices::new(config.embedding_dim));
+        
+        // Initialize inference engine
+        let inference = Arc::new(RelationshipInference::new());
+        
+        // Initialize pattern extractor
+        let patterns = Arc::new(PatternExtractor::new());
+        
+        // Initialize algorithms
+        let algorithms = Arc::new(GraphAlgorithms);
+        
+        // Initialize temporal tracker (24 hour window by default)
+        let temporal_tracker = Arc::new(TemporalTracker::new(24));
+        
+        // Initialize stats
+        let stats = Arc::new(RwLock::new(GraphStats::default()));
+        
+        // Initialize embedding service if enabled
+        let embedding_service = if config.semantic_embeddings_enabled {
+            if let Some(ref embedding_config) = config.embedding_config {
+                match EmbeddingService::new(embedding_config.clone()).await {
+                    Ok(service) => {
+                        tracing::info!("Initialized semantic embedding service with model: {}", 
+                            embedding_config.model_id);
+                        Some(Arc::new(service))
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to initialize embedding service: {}. Falling back to hash-based embeddings.", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        
+        Ok(Self {
+            storage,
+            indices,
+            inference,
+            patterns,
+            algorithms,
+            temporal_tracker,
+            embedding_service,
             config,
             stats,
         })
@@ -273,12 +342,45 @@ impl GraphOperations for ConsciousGraph {
 }
 
 impl ConsciousGraph {
-    /// Generate embedding from text using simple hash-based approach
+    /// Generate embedding from text using semantic embeddings or fallback to hash-based
     fn generate_embedding(&self, text: &str) -> Vec<f32> {
+        // If semantic embeddings are available, use them synchronously via blocking
+        if let Some(ref embedding_service) = self.embedding_service {
+            // Use tokio's block_in_place to run async code in sync context
+            // This is safe because we're in a tokio runtime context
+            match tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    embedding_service.embed(text).await
+                })
+            }) {
+                Ok(embedding) => {
+                    // Ensure embedding matches configured dimension
+                    if embedding.len() == self.config.embedding_dim {
+                        return embedding;
+                    } else {
+                        tracing::warn!(
+                            "Embedding dimension mismatch: expected {}, got {}. Using hash-based fallback.",
+                            self.config.embedding_dim,
+                            embedding.len()
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::debug!("Failed to generate semantic embedding: {}. Using hash-based fallback.", e);
+                }
+            }
+        }
+        
+        // Fallback to hash-based approach
+        self.generate_hash_embedding(text)
+    }
+    
+    /// Generate embedding using hash-based approach (fallback)
+    fn generate_hash_embedding(&self, text: &str) -> Vec<f32> {
         let embedding_dim = self.config.embedding_dim;
         let mut embedding = vec![0.0; embedding_dim];
         
-        // Simple hash-based features (same as PersistentMemoryModuleExt)
+        // Simple hash-based features
         for (i, ch) in text.chars().enumerate() {
             let idx = (ch as usize + i) % embedding_dim;
             embedding[idx] += 1.0;
@@ -293,6 +395,36 @@ impl ConsciousGraph {
         }
         
         embedding
+    }
+    
+    /// Generate embedding asynchronously (preferred for new code)
+    pub async fn generate_embedding_async(&self, text: &str) -> Result<Vec<f32>> {
+        if let Some(ref embedding_service) = self.embedding_service {
+            match embedding_service.embed(text).await {
+                Ok(embedding) => {
+                    if embedding.len() == self.config.embedding_dim {
+                        Ok(embedding)
+                    } else {
+                        tracing::warn!(
+                            "Embedding dimension mismatch: expected {}, got {}. Using hash-based fallback.",
+                            self.config.embedding_dim,
+                            embedding.len()
+                        );
+                        Ok(self.generate_hash_embedding(text))
+                    }
+                }
+                Err(e) => {
+                    if self.config.embedding_config.as_ref().map_or(false, |c| c.fallback_enabled) {
+                        tracing::debug!("Failed to generate semantic embedding: {}. Using hash-based fallback.", e);
+                        Ok(self.generate_hash_embedding(text))
+                    } else {
+                        Err(anyhow!("Failed to generate embedding: {}", e))
+                    }
+                }
+            }
+        } else {
+            Ok(self.generate_hash_embedding(text))
+        }
     }
 }
 

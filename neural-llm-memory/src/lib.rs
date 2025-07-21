@@ -24,6 +24,7 @@ pub mod emotional;
 pub mod emotional_types;
 pub mod emotional_integration;
 pub mod graph;
+pub mod embeddings;
 
 pub use nn::{NeuralNetwork, Layer, Activation};
 pub use memory::{MemoryBank, MemoryModule, MemoryConfig, PersistentMemoryModule, PersistentMemoryBuilder};

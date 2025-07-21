@@ -511,6 +511,8 @@ mod tests {
             max_nodes: 1000,
             persistence_enabled: false,
             storage_path: std::path::PathBuf::from("/tmp/test_graph"),
+            semantic_embeddings_enabled: false,
+            embedding_config: None,
         };
         
         let graph = Arc::new(ConsciousGraph::new_with_config(config).expect("Failed to create graph"));
